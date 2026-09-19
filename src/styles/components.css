@@ -86,6 +86,7 @@
 .section__title { display: flex; align-items: center; justify-content: space-between; font-size: 11px; letter-spacing: 0.08em; color: var(--c-text-dim); text-transform: uppercase; margin-bottom: 6px; }
 .rowcard {
   display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-panel-2);
+  width: 100%; text-align: left;
 }
 .rowcard + .rowcard { margin-top: 6px; }
 .rowcard--tap:active { border-color: var(--c-border-strong); }
@@ -163,7 +164,7 @@
 .roster__idx { font-family: var(--font-mono); font-size: 9px; color: var(--c-text-faint); align-self: flex-start; }
 
 /* ---------- Lineup ---------- */
-.slot { display: grid; grid-template-columns: 64px 1fr auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-panel-2); }
+.slot { display: grid; grid-template-columns: 64px 1fr auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-panel-2); width: 100%; text-align: left; }
 .slot + .slot { margin-top: 6px; }
 .slot__role { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; color: var(--c-text-dim); }
 .slot__name { font-weight: 700; }
@@ -171,7 +172,7 @@
 .slot__session { color: var(--c-text-dim); font-style: italic; }
 
 /* ---------- Schedule ---------- */
-.actionslot { display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 10px; padding: 12px 10px; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-panel-2); }
+.actionslot { display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 10px; padding: 12px 10px; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-panel-2); width: 100%; text-align: left; }
 .actionslot + .actionslot { margin-top: 6px; }
 .actionslot__n { font-family: var(--font-mono); color: var(--c-text-faint); }
 .actionslot__empty { color: var(--c-amber); }

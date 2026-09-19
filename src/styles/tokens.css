@@ -24,7 +24,7 @@
   --c-text-faint: #6b675f;
 
   /* Dark management panels: near-opaque, thin borders, limited glow */
-  --c-panel: rgba(18, 21, 29, 0.96);
+  --c-panel: rgba(16, 19, 27, 0.985); /* near-opaque: text readability first (Visual Bible §07) */
   --c-panel-2: #171b24;
   --c-panel-3: #1f2430;
   --c-border: rgba(235, 229, 216, 0.12);
