@@ -122,7 +122,11 @@ try {
   await expect((await text()).includes('Impulsive'), 'interview revealed second trait');
   await tapText('계약 협상');
   await expect(hash() === '#/audition/contract/C01', 'contract route');
-  await expect((await text()).includes('수락 가능성'), 'acceptance likelihood shown as words');
+  const ct = await text();
+  await expect(ct.includes('이 조건을 받아들일까') && ct.includes('이상이면 받아들인다'),
+    'the contract screen states the decision and the salary floor');
+  await expect(!/가능성|확실|반반|어려움/.test(ct), 'no probability wording where nothing is rolled');
+  await expect(ct.includes('영입 후 주간 급여') && ct.includes('단순 추정치'), 'payroll impact shown as an estimate');
   await check('CONTRACT');
   await tapText('제안하기');
   await expect((await text()).includes('합의했다'), 'offer accepted');

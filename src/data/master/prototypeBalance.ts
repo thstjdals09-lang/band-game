@@ -18,6 +18,11 @@ export const PROTOTYPE_BALANCE = {
   contract: {
     salaryStep: 50_000,   // TODO(balance) stepper increment in the Contract scene
     minSalary: 50_000,    // TODO(balance)
+    /**
+     * 기준 주급 대비 이 비율 이상이면 받아들인다. 기존 화면이 쓰던 0.75를 그대로 옮긴 값이라
+     * 밸런스 변화는 없다. TODO(balance)
+     */
+    acceptSalaryRatio: 0.75,
     durationOptionsWeeks: [26, 52, 104] as const, // TODO(balance)
     initialSatisfaction: 70, // TODO(balance)
   },

@@ -20,6 +20,7 @@ node tests/e2e/compat.mjs     # PHASE 2A 이전 형태의 세이브 로드 + 계
 node tests/e2e/practicecost.mjs  # 합주·연습이 장부에 별도 청구되지 않는지
 node tests/e2e/showslot.mjs      # 공연 슬롯 연결 / 홍보 슬롯 누적
 node tests/e2e/songwork.mjs      # 곡 제작 v1: 예약 작곡 → 공연 → 녹음실 → 녹음 → 싱글·EP 발매
+node tests/e2e/contract.mjs      # 계약 협상: 수락·역제안·거절, 수락 후 조건 변경, 급여 반영
 ```
 
 각 스크립트는 실패 시 스크린샷(`*_fail.png`)을 남기고 exit code 1로 끝난다.
