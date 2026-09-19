@@ -9,28 +9,28 @@ import type {
 export const FACILITIES: Record<string, FacilityDefinition> = {
   REHEARSAL_ROOM: {
     id: 'REHEARSAL_ROOM', name: '연습실', description: '낡은 지하 연습실. 모든 것이 여기서 시작한다.',
-    unlockCondition: '기본 보유', buildCost: 0, effectSummary: 'Practice 가능',
+    unlockCondition: '기본 보유', buildCost: 0, effectSummary: '합주 연습을 할 수 있다',
   },
   RECORDING_ROOM: {
-    id: 'RECORDING_ROOM', name: '녹음실', description: '잠긴 옆 공간. 문 위에 "SOON..." 표지가 붙어 있다.',
-    unlockCondition: '첫 공연 완료', buildCost: 800000, effectSummary: 'Recording 주간 활동 해금 / 곡 진행 속도 상승',
+    id: 'RECORDING_ROOM', name: '녹음실', description: '잠긴 옆 공간. 문 너머로 방음벽이 보인다.',
+    unlockCondition: '첫 공연 완료', buildCost: 800000, effectSummary: '녹음 일정을 잡을 수 있고 곡 작업이 빨라진다',
     basecampStageAfterBuild: 2,
   },
   LOUNGE: {
     id: 'LOUNGE', name: '라운지', description: '휴식과 관계가 쌓이는 공간.',
-    unlockCondition: 'Local Act 도달', buildCost: 1200000, effectSummary: 'Rest 효율 상승 / 관계 이벤트',
+    unlockCondition: '지역 밴드 단계 도달', buildCost: 1200000, effectSummary: '휴식 효율이 오르고 멤버 사이의 일이 늘어난다',
   },
   OFFICE: {
     id: 'OFFICE', name: '사무실', description: '스태프와 경영 기능의 자리.',
-    unlockCondition: 'Local Act 도달', buildCost: 1500000, effectSummary: 'Staff 해금 (후속 확장)',
+    unlockCondition: '지역 밴드 단계 도달', buildCost: 1500000, effectSummary: '스태프를 둘 수 있다',
   },
   STYLING_ROOM: {
     id: 'STYLING_ROOM', name: '스타일링룸', description: '무대 비주얼과 의상.',
-    unlockCondition: 'Rising Act 도달', buildCost: 2000000, effectSummary: '무대 비주얼 (후속 확장)',
+    unlockCondition: '전국 단계 도달', buildCost: 2000000, effectSummary: '무대 의상과 비주얼을 다듬을 수 있다',
   },
   EQUIPMENT_ROOM: {
     id: 'EQUIPMENT_ROOM', name: '장비 공간', description: '악기와 장비 보관/업그레이드.',
-    unlockCondition: 'Rising Act 도달', buildCost: 1800000, effectSummary: 'Equipment 성장 (후속 확장)',
+    unlockCondition: '전국 단계 도달', buildCost: 1800000, effectSummary: '악기와 장비를 관리할 수 있다',
   },
 };
 
@@ -64,14 +64,14 @@ export const CORE_LINEUP_SLOTS: SlotId[] = ['VOCAL', 'GUITAR', 'BASS', 'DRUMS'];
 // IA v1.1 §15: Main Action 예: Practice / Promotion / Recording / Rest / Live Show.
 // Individual Action 예: 개인 레슨 / 휴식 / 인터뷰. TODO(balance): cost values are placeholders.
 export const ACTIVITIES: ActivityDefinition[] = [
-  { id: 'PRACTICE', scope: 'BAND', name: 'Band Practice', cost: 30000 },
-  { id: 'PROMOTION', scope: 'BAND', name: 'Promotion', cost: 80000 },
-  { id: 'RECORDING', scope: 'BAND', name: 'Recording', cost: 150000 },
-  { id: 'REST', scope: 'BAND', name: 'Rest', cost: 0 },
-  { id: 'LIVE_SHOW', scope: 'BAND', name: 'Live Show', cost: 50000 },
-  { id: 'PRIVATE_LESSON', scope: 'INDIVIDUAL', name: 'Private Lesson', cost: 60000 },
-  { id: 'REST', scope: 'INDIVIDUAL', name: 'Rest', cost: 0 },
-  { id: 'INTERVIEW', scope: 'INDIVIDUAL', name: 'Interview', cost: 0 },
+  { id: 'PRACTICE', scope: 'BAND', name: '합주 연습', cost: 30000, summary: '함께 맞춰보며 곡을 다듬는다.', affects: ['합주 완성도', '곡 진행'] },
+  { id: 'PROMOTION', scope: 'BAND', name: '홍보', cost: 80000, summary: '공연과 밴드를 알린다.', affects: ['팬', '인지도'] },
+  { id: 'RECORDING', scope: 'BAND', name: '녹음', cost: 150000, summary: '곡을 음원으로 남긴다.', affects: ['곡 진행', '음원'] },
+  { id: 'REST', scope: 'BAND', name: '휴식', cost: 0, summary: '한 주를 쉬어간다.', affects: ['체력', '멘탈'] },
+  { id: 'LIVE_SHOW', scope: 'BAND', name: '공연', cost: 50000, summary: '예정된 무대에 오른다.', affects: ['팬', '수익', '평판'] },
+  { id: 'PRIVATE_LESSON', scope: 'INDIVIDUAL', name: '개인 레슨', cost: 60000, summary: '한 명이 집중 훈련을 받는다.', affects: ['개인 성장'] },
+  { id: 'REST', scope: 'INDIVIDUAL', name: '개인 휴식', cost: 0, summary: '한 명이 컨디션을 회복한다.', affects: ['체력', '멘탈'] },
+  { id: 'INTERVIEW', scope: 'INDIVIDUAL', name: '인터뷰', cost: 0, summary: '한 명이 매체와 이야기한다.', affects: ['개인 인기'] },
 ];
 
 // Generic (nameless) session musicians - IA §11: 기간, 비용, 대략적 실력/신뢰도 중심.

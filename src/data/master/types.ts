@@ -190,7 +190,11 @@ export interface ActivityDefinition {
   id: MainActionId | IndividualActionId;
   scope: 'BAND' | 'INDIVIDUAL';
   name: string;
-  cost: number; // TODO(balance) projected expense contribution
+  cost: number;      // TODO(balance) projected expense contribution
+  /** Short player-facing line. Final copy is written in the VS content phase. */
+  summary: string;
+  /** Key elements this action affects, shown as player-readable labels (not formulas). */
+  affects: string[];
 }
 
 export interface SessionTemplate {

@@ -24,7 +24,9 @@ export interface WorldHotspot {
   x: number;
   y: number;
   state?: 'BUILT' | 'AVAILABLE' | 'LOCKED';
-  badge?: string;         // "3 NEW", "!", "SOON..."
+  /** Player-facing state word (never an internal enum shown raw). */
+  stateLabel?: string;
+  badge?: string;         // short player-facing marker, e.g. "3"
   target: string;         // route path
 }
 

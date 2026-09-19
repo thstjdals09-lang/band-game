@@ -29,6 +29,14 @@
 - `styles/tokens.css`를 "PROTOTYPE APPROXIMATION - NOT Implementation Lock"으로 명시.
 - 승인 반영: C05 = HIGH_START_SLOW, C13 = HIGH_START. Band Name Event placeholder chips + 자유 입력 유지. gh-pages 배포 유지(Actions 미추가).
 
+### 2026-09-19 — PHASE 1.2: Mobile UX Cleanup (신규 기능 없음)
+- **개발 정보 분리**: `state/devStore.ts`(localStorage `band-game.dev`)에 diagnostics 플래그 추가. OFF(기본)에서는 asset key / 구현 메모가 어디에도 렌더되지 않는다. `PlaceholderAsset`은 중립 프레임 + 캐릭터 실루엣만 그리고 키는 `data-asset` 속성으로만 노출. `Todo` 컴포넌트를 `DevNote`로 교체(dev 전용).
+- **모바일 가독성**: 타입 스케일(본문 15px, 리드 17px, 타이틀 19px) · 최소 터치 44~48px · HUD 42px / Dock 66px · gutter 16px로 재조정. 화면 전체를 한국어 플레이어 카피로 정리.
+- **화면별**: START(개발 문구 제거) / HOME(월드 라벨 한국어, 상황별 CTA 카드) / AUDITION(후보 카드·스탯 확대) / COMPARE(사실 → 스탯 → 적합도, 엔진 필요한 항목은 "아직 알 수 없음" + 이유) / CANDIDATE DETAIL(비주얼 우선, KNOWN/UNCERTAIN/UNKNOWN 재구성) / CONTRACT(협상 장면 + 선택 상태 강화) / BAND(future shell을 ⋯ 오버플로로 이동, 라인업 우선) / SESSION HIRE(비용·실력·신뢰도 + "이 포지션에 고용" CTA) / SCHEDULE(활동 카드에 설명·영향·비용) / WEEK RESOLUTION(단계마다 무엇이 바뀌었는지) / BAND NAME EVENT(자연스러운 샘플 이름) / NEW SONG(보상 단계 위계) / INBOX(공연장·수용·마감, 수락이 main CTA) / OUTSIDE(Local Venues 우선) / FACILITIES(건설 가능 / 보유 / 잠김 구분).
+- **DEV 프리셋**: `state/devPresets.ts` + `/dev`. A~H 9종(B2 포함)을 실제 action 재생으로 구성. 플레이어 UI에서는 진입 불가.
+- **버그 수정**: 진단 모드의 asset key 오버레이가 패널 위 탭을 가로채던 문제(z-index/pointer-events). 월드 레이어는 패널이 열리면 `pointer-events: none`.
+- **검증**: tsc / build 통과. Playwright 스모크가 Prototype Spine 전 구간 + 30개 화면 개발문자열 검사 + 터치 타깃 40px 검사 + 프리셋 A/B/E/F/H + 진단 토글 + 구형 세이브 마이그레이션까지 통과, 콘솔 에러 0.
+
 ## 판단 필요 / TODO (문서에 없거나 모호한 항목)
 
 - ~~Growth Curve 표기~~ 승인됨(PHASE 1.1): C05 = HIGH_START_SLOW, C13 = HIGH_START.

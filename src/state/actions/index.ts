@@ -1,7 +1,7 @@
 // Domain actions - the only place that mutates SaveData. UI calls these; simulation depth is PHASE 2+.
 // All numeric tuning lives in PROTOTYPE_BALANCE (TODO(balance)).
 import {
-  CHARACTERS, CONTRACT_PROFILES, PROTOTYPE_BALANCE, SESSION_TEMPLATES, VENUES,
+  CHARACTERS, CONTRACT_PROFILES, FACILITIES, PROTOTYPE_BALANCE, SESSION_TEMPLATES, VENUES,
   type CharacterId, type IndividualActionId, type MainActionId, type SlotId,
 } from '@/data/master';
 import { useGameStore } from '../store';
@@ -137,7 +137,7 @@ export const scheduleActions = {
       const week = d.world.week;
       const expense = projectedExpense(d);
       d.economy.cash -= expense;
-      d.economy.ledger.push({ week, label: `Week ${week} expenses`, amount: -expense });
+      d.economy.ledger.push({ week, label: `${week}주차 운영비`, amount: -expense });
 
       const didCreate = d.weeklyPlan.mainActions.some((a) => a === 'PRACTICE' || a === 'RECORDING');
       if (didCreate && input.newSongTitle) {
@@ -166,7 +166,7 @@ export const scheduleActions = {
         const createdWeek = week + B.opportunity.liveOfferDelayWeeks;
         d.opportunities[id] = {
           id, type: 'LIVE', title: 'Basement Club 공연 제안',
-          description: `${VENUES.BASEMENT_CLUB.name}에서 Debut Showcase를 제안했다.`,
+          description: `${VENUES.BASEMENT_CLUB.name}에서 데뷔 무대를 제안했다.`,
           createdWeek, expiresWeek: createdWeek + B.opportunity.liveOfferWindowWeeks, status: 'NEW', payload: { venueId: 'BASEMENT_CLUB' },
         };
       }
@@ -254,8 +254,8 @@ export const facilityActions = {
       f.built = true;
       f.level = 1;
       d.economy.cash -= cost;
-      d.economy.ledger.push({ week: d.world.week, label: `${facilityId} 건설`, amount: -cost });
-      d.careerHistory.push({ week: d.world.week, type: 'FACILITY', text: `${facilityId} 건설 완료` });
+      d.economy.ledger.push({ week: d.world.week, label: `${FACILITIES[facilityId]?.name ?? facilityId} 건설`, amount: -cost });
+      d.careerHistory.push({ week: d.world.week, type: 'FACILITY', text: `${FACILITIES[facilityId]?.name ?? facilityId} 건설 완료` });
     });
   },
 };

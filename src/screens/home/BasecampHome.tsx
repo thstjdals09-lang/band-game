@@ -1,9 +1,10 @@
 // HOME / BASECAMP (IA §5). The world itself is rendered by AppShell's world layer (World 90 / UI 10).
-// This screen only adds: Member Quick View sheet (?member=Cxx) and minimal alternative entry hints.
+// This screen adds only the Member Quick View sheet and the alternative entry hints for the
+// most important unresolved thing right now.
 import { useSearchParams } from 'react-router-dom';
 import { CHARACTERS, type CharacterId } from '@/data/master';
 import { useSave } from '@/state/store';
-import { conditionWord, pendingVenueName } from '@/state/selectors';
+import { conditionWord, debutSongRequirement, pendingVenueName, unreadOpportunityCount } from '@/state/selectors';
 import { useGameNav } from '@/app/navigation';
 import { CharacterVisual } from '@/components/CharacterVisual';
 import { BottomSheet, Btn, Tag } from '@/components/ui';
@@ -18,42 +19,54 @@ export function BasecampHomeScreen() {
 
   const noMembers = save.band.activeMembers.length === 0;
   const venue = pendingVenueName(save);
+  const unread = unreadOpportunityCount(save);
+  const req = debutSongRequirement(save);
 
   return (
     <>
-      {/* Alternative entry hints (IA §5: 중요한 오브젝트에는 명확한 알림 신호와 대체 진입 경로) */}
-      <div style={{ position: 'absolute', left: 12, right: 12, bottom: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* Alternative entry for the current most important action (IA §5) */}
+      <div className="homecta">
         {noMembers && (
-          <button className="rowcard rowcard--tap" onClick={() => go('/audition')}>
-            <span className="marker" style={{ position: 'static', animation: 'none' }}>!</span>
-            <span className="grow" style={{ textAlign: 'left' }}>
-              <div className="rowcard__title">첫 오디션이 열려 있다</div>
-              <div className="rowcard__meta">후보 {Object.values(save.auditions)[0]?.candidateIds.length ?? 0}명 · AUDITION</div>
+          <button className="homecta__card" onClick={() => go('/audition')}>
+            <span className="homecta__dot" />
+            <span className="grow">
+              <div className="rowcard__title">오디션이 열려 있다</div>
+              <div className="rowcard__meta">후보 {Object.values(save.auditions)[0]?.candidateIds.length ?? 0}명을 만나본다</div>
             </span>
-            <span className="dim">→</span>
+            <span className="rowcard__chev">›</span>
           </button>
         )}
         {venue && (
-          <button className="rowcard rowcard--tap" onClick={() => go('/performance/prep')}>
-            <span className="grow" style={{ textAlign: 'left' }}>
-              <div className="rowcard__title">Debut Showcase · {venue}</div>
-              <div className="rowcard__meta">공연 준비로 이동</div>
+          <button className="homecta__card" onClick={() => go('/performance/prep')}>
+            <span className="homecta__dot" />
+            <span className="grow">
+              <div className="rowcard__title">{venue} 공연이 잡혀 있다</div>
+              <div className="rowcard__meta">{req.met ? '공연 준비로 이동' : `곡 ${req.have}/${req.required} · 준비가 더 필요하다`}</div>
             </span>
-            <span className="dim">→</span>
+            <span className="rowcard__chev">›</span>
+          </button>
+        )}
+        {!noMembers && !venue && unread > 0 && (
+          <button className="homecta__card homecta__card--calm" onClick={() => go('/inbox')}>
+            <span className="homecta__dot" />
+            <span className="grow">
+              <div className="rowcard__title">새 제안 {unread}건</div>
+              <div className="rowcard__meta">전화와 책상 위에 메모가 남아 있다</div>
+            </span>
+            <span className="rowcard__chev">›</span>
           </button>
         )}
       </div>
 
       {/* Member Quick View */}
-      <BottomSheet open={!!member} title="MEMBER QUICK VIEW" onClose={back}>
+      <BottomSheet open={!!member} title={member ? member.name : ''} onClose={back}>
         {member && (
           <div className="col">
-            <div className="row">
+            <div className="row row--top">
               <CharacterVisual id={member.id} variant="BUST" />
-              <div className="grow">
-                <div className="rowcard__title">{member.name}</div>
-                <div className="tags mt8">{member.positions.map((p) => <Tag key={p} tone="role">{p.toUpperCase()}</Tag>)}</div>
-                <div className="tags mt8">{member.musicTags.map((t) => <Tag key={t}>{t}</Tag>)}</div>
+              <div className="grow col" style={{ gap: 8 }}>
+                <div className="tags">{member.positions.map((p) => <Tag key={p} tone="role">{p.toUpperCase()}</Tag>)}</div>
+                <div className="tags">{member.musicTags.map((t) => <Tag key={t}>{t}</Tag>)}</div>
               </div>
             </div>
             {state && (
@@ -63,7 +76,7 @@ export function BasecampHomeScreen() {
                 <dt>사기</dt><dd>{conditionWord(state.condition.morale)}</dd>
               </dl>
             )}
-            <Btn variant="secondary" full onClick={() => go(`/band/members/${member.id}`)}>DETAIL</Btn>
+            <Btn variant="secondary" full onClick={() => go(`/band/members/${member.id}`)}>자세히 보기</Btn>
           </div>
         )}
       </BottomSheet>

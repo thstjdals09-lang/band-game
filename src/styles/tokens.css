@@ -4,6 +4,7 @@
    (charcoal / dark navy / concrete gray / aged brown / warm amber / coral-pink) but does not
    lock HEX values, and the Display font (brush/marker) asset does not exist yet.
    Every value here is a placeholder to be replaced when Visual Bible v1.1 / Asset Spec locks them.
+   Type scale and hit areas below are tuned for a 390x844 portrait phone.
    ============================================================================ */
 :root {
   color-scheme: dark;
@@ -15,40 +16,49 @@
   --c-brown: #5b4632;         /* aged brown */
 
   /* 일상 조명: warm amber / tungsten */
-  --c-amber: #e3a34f;
-  --c-amber-soft: rgba(227, 163, 79, 0.16);
+  --c-amber: #e8ab5c;
+  --c-amber-soft: rgba(232, 171, 92, 0.16);
 
   /* UI Accent: coral / pink - ONLY for active menu, selection, CTA, discovery/growth */
   --c-accent: #ff5c7a;
   --c-accent-soft: rgba(255, 92, 122, 0.16);
 
   /* Text */
-  --c-text: #ebe5d8;
-  --c-text-dim: #9c978d;
-  --c-text-faint: #6b675f;
+  --c-text: #f0ebe0;
+  --c-text-dim: #a8a396;
+  --c-text-faint: #77726a;
 
   /* Dark management panels: near-opaque, thin borders, limited glow */
-  --c-panel: rgba(16, 19, 27, 0.985); /* near-opaque: text readability first (Visual Bible §07) */
+  --c-panel: rgba(16, 19, 27, 0.985);
   --c-panel-2: #171b24;
   --c-panel-3: #1f2430;
-  --c-border: rgba(235, 229, 216, 0.12);
-  --c-border-strong: rgba(235, 229, 216, 0.26);
+  --c-border: rgba(240, 235, 224, 0.13);
+  --c-border-strong: rgba(240, 235, 224, 0.28);
 
-  --c-ok: #79c07d;
-  --c-warn: #e3a34f;
+  --c-ok: #7fc98a;
+  --c-warn: #e8ab5c;
   --c-danger: #ff5c7a;
 
-  /* Information type: small crisp sans. Display type (brush/marker) is a missing asset -> falls back. */
+  /* Information type: small crisp sans. Display type (brush/marker) asset does not exist yet. */
   --font-info: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
-  --font-display: var(--font-info); /* TODO(asset): DISPLAY_FONT_BRUSH (Visual Bible §09 Display Type) */
+  --font-display: var(--font-info);
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
+  /* Type scale (390px portrait) */
+  --fs-hero: 26px;
+  --fs-title: 19px;
+  --fs-lead: 17px;
+  --fs-body: 15px;
+  --fs-meta: 13px;
+  --fs-label: 12px;
+
   --app-max-w: 430px;
-  --hud-h: 34px;
-  --dock-h: 60px;
+  --hud-h: 42px;
+  --dock-h: 66px;
+  --tap: 48px;           /* minimum comfortable touch target */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
-  --radius: 6px;
-  --gutter: 14px;
+  --radius: 8px;
+  --gutter: 16px;
 }

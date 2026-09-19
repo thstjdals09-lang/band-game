@@ -1,5 +1,5 @@
-// CONTRACT (IA §14): 캐릭터와 협상하는 장면. Salary / Duration / Role (+ special clauses).
-// Acceptance shown as words (Very Likely / Likely / Uncertain / Unlikely). Result ACCEPT / COUNTER / REJECT.
+// CONTRACT (IA §14): 계약서가 아니라 캐릭터와 협상하는 장면.
+// Salary / Duration / Role, 수락 가능성은 숫자 대신 말로. 결과는 ACCEPT / COUNTER / REJECT.
 // Immersive (dock hidden). Back -> Candidate Detail.
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -10,9 +10,9 @@ import { useGameNav } from '@/app/navigation';
 import { won } from '@/app/format';
 import { Panel } from '@/components/Panel';
 import { CharacterVisual } from '@/components/CharacterVisual';
-import { Btn, EmptyState, Section, Tag, Todo } from '@/components/ui';
+import { Btn, EmptyState, Notice, Section, Tag } from '@/components/ui';
 
-type Likelihood = 'Very Likely' | 'Likely' | 'Uncertain' | 'Unlikely';
+type Likelihood = '거의 확실' | '가능성 높음' | '반반' | '어려움';
 
 export function ContractScreen() {
   const { id } = useParams();
@@ -26,18 +26,16 @@ export function ContractScreen() {
   const [salary, setSalary] = useState(profile?.baseSalary ?? 300000);
   const [duration, setDuration] = useState(profile?.preferredDurationWeeks ?? 52);
   const [role, setRole] = useState<'CORE_MEMBER' | 'SUPPORT_MEMBER'>('CORE_MEMBER');
-  const [result, setResult] = useState<'ACCEPT' | 'COUNTER' | 'REJECT' | null>(null);
+  const [result, setResult] = useState<'ACCEPT' | 'COUNTER' | null>(null);
 
-  if (!c || !audition) return <Panel title="CONTRACT" nav="back" immersive><EmptyState text="협상할 후보가 없다." /></Panel>;
+  if (!c || !audition) return <Panel title="계약" nav="back" immersive><EmptyState text="협상할 후보가 없다." /></Panel>;
 
   // TODO(PHASE2 engine): likelihood from contract profile + salary ratio + role + clauses + band reputation.
   const ratio = salary / (profile?.baseSalary ?? salary);
-  const likelihood: Likelihood = ratio >= 1.1 ? 'Very Likely' : ratio >= 0.9 ? 'Likely' : ratio >= 0.75 ? 'Uncertain' : 'Unlikely';
+  const likelihood: Likelihood = ratio >= 1.1 ? '거의 확실' : ratio >= 0.9 ? '가능성 높음' : ratio >= 0.75 ? '반반' : '어려움';
+  const likeTone = likelihood === '어려움' ? 'POOR' : likelihood === '반반' ? 'FAIR' : 'GOOD';
 
-  const offer = () => {
-    // TODO(PHASE2 engine): COUNTER / REJECT outcomes. Prototype: Unlikely -> COUNTER, else ACCEPT.
-    setResult(likelihood === 'Unlikely' ? 'COUNTER' : 'ACCEPT');
-  };
+  const offer = () => setResult(likelihood === '어려움' ? 'COUNTER' : 'ACCEPT');
   const join = () => {
     auditionActions.signContract(audition.auditionId, cid, { salary, durationWeeks: duration, rolePromise: role });
     go('/band', { replace: true });
@@ -45,58 +43,70 @@ export function ContractScreen() {
 
   return (
     <Panel
-      title="CONTRACT"
-      subtitle={`${c.name} · ${profile?.label ?? ''}`}
+      title="계약 협상"
+      subtitle={c.name}
       nav="back"
       immersive
       footer={result === 'ACCEPT'
-        ? <Btn variant="primary" full onClick={join}>JOIN BAND</Btn>
-        : <><Btn variant="ghost" onClick={back}>WALK AWAY</Btn><Btn variant="primary" full onClick={offer}>{result === 'COUNTER' ? 'OFFER AGAIN' : 'MAKE OFFER'}</Btn></>}
+        ? <Btn variant="primary" size="lg" full onClick={join}>함께 하기로 한다</Btn>
+        : (
+          <>
+            <Btn variant="ghost" onClick={back}>물러나기</Btn>
+            <Btn variant="primary" size="lg" full onClick={offer}>{result === 'COUNTER' ? '다시 제안' : '제안하기'}</Btn>
+          </>
+        )}
     >
-      <div className="row" style={{ alignItems: 'flex-start' }}>
+      {/* Negotiation scene */}
+      <div className="row row--top">
         <CharacterVisual id={cid} variant="BUST" />
         <div className="grow choice">
           <div className="choice__title">{c.name}</div>
-          <div className="choice__text mono xs dim">[PLACEHOLDER_DIALOGUE_CONTRACT_{cid}]</div>
-          <div className="xs faint">협상 대사는 VS 콘텐츠 단계에서 작성.</div>
+          <p className="choice__text">{result === 'COUNTER'
+            ? '조건을 다시 생각해 봤으면 한다는 눈치다.'
+            : result === 'ACCEPT'
+              ? '조건을 듣고 고개를 끄덕인다.'
+              : '테이블 건너편에 앉아 조건을 기다리고 있다.'}</p>
         </div>
       </div>
 
-      <Section title="Salary / 주">
-        <div className="row">
+      <Section title="주급">
+        <div className="row row--between">
           <div className="stepper">
-            <button onClick={() => setSalary((s) => Math.max(PROTOTYPE_BALANCE.contract.minSalary, s - PROTOTYPE_BALANCE.contract.salaryStep))}>−</button>
+            <button onClick={() => setSalary((s) => Math.max(PROTOTYPE_BALANCE.contract.minSalary, s - PROTOTYPE_BALANCE.contract.salaryStep))} aria-label="주급 내리기">−</button>
             <span>{won(salary)}</span>
-            <button onClick={() => setSalary((s) => s + PROTOTYPE_BALANCE.contract.salaryStep)}>+</button>
+            <button onClick={() => setSalary((s) => s + PROTOTYPE_BALANCE.contract.salaryStep)} aria-label="주급 올리기">+</button>
           </div>
-          <span className="xs dim">기준 {won(profile?.baseSalary ?? 0)}</span>
+          <span className="meta dim">기준 {won(profile?.baseSalary ?? 0)}</span>
         </div>
       </Section>
-      <Section title="Duration">
-        <div className="seg">{PROTOTYPE_BALANCE.contract.durationOptionsWeeks.map((w) => <button key={w} className={duration === w ? 'on' : ''} onClick={() => setDuration(w)}>{w}주</button>)}</div>
-      </Section>
-      <Section title="Role">
+
+      <Section title="계약 기간">
         <div className="seg">
-          <button className={role === 'CORE_MEMBER' ? 'on' : ''} onClick={() => setRole('CORE_MEMBER')}>CORE MEMBER</button>
-          <button className={role === 'SUPPORT_MEMBER' ? 'on' : ''} onClick={() => setRole('SUPPORT_MEMBER')}>SUPPORT</button>
+          {PROTOTYPE_BALANCE.contract.durationOptionsWeeks.map((w) => (
+            <button key={w} className={duration === w ? 'on' : ''} onClick={() => setDuration(w)}>{w}주</button>
+          ))}
         </div>
       </Section>
+
+      <Section title="역할">
+        <div className="seg">
+          <button className={role === 'CORE_MEMBER' ? 'on' : ''} onClick={() => setRole('CORE_MEMBER')}>주전 멤버</button>
+          <button className={role === 'SUPPORT_MEMBER' ? 'on' : ''} onClick={() => setRole('SUPPORT_MEMBER')}>서포트</button>
+        </div>
+      </Section>
+
       {profile?.clauses.length ? (
-        <Section title="특수 조항">
+        <Section title="이 사람이 요구하는 조항">
           <div className="tags">{profile.clauses.map((k) => <Tag key={k} tone="amber">{CLAUSE_LABELS[k] ?? k}</Tag>)}</div>
         </Section>
       ) : null}
 
-      <Section title="수락 가능성"><span className={`grade ${likelihood === 'Unlikely' ? 'grade--POOR' : likelihood === 'Uncertain' ? 'grade--FAIR' : 'grade--GOOD'}`}>{likelihood}</span></Section>
+      <Section title="수락 가능성">
+        <div className="rowcard"><span className="grow">지금 조건이라면</span><span className={`grade grade--${likeTone}`}>{likelihood}</span></div>
+      </Section>
 
-      {result && (
-        <div className={`choice mt16`}>
-          <div className="choice__title">RESULT</div>
-          <div className="big-grade" style={{ fontSize: 24 }}>{result}</div>
-          {result === 'COUNTER' && <div className="small dim">조건을 조정해서 다시 제안하라.</div>}
-        </div>
-      )}
-      <Todo>수락 확률/카운터 로직, 계약금(GDD §04 상세 화면: 급여·기간·계약금·역할 요구·특별 조건)은 PHASE2.</Todo>
+      {result === 'COUNTER' && <Notice tone="warn">조건을 조정해서 다시 제안해 보자.</Notice>}
+      {result === 'ACCEPT' && <Notice tone="info">합의했다. 이제 밴드에 합류시킬 수 있다.</Notice>}
     </Panel>
   );
 }

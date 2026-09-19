@@ -1,6 +1,6 @@
 // LINEUP (IA §7-8): Role -> Assigned Member over a VARIABLE slot list (core VOCAL/GUITAR/BASS/DRUMS by default).
-// Position tap -> Bottom Sheet (no drag & drop). Empty slot -> USE MEMBER / HIRE SESSION.
-// Multi-position member -> ASSIGN ROLE (change role). Slot expansion (e.g. KEYS) is a later feature; data already supports it.
+// Position tap -> Bottom Sheet (no drag & drop). Empty slot -> 멤버 배치 / 세션 고용.
+// Multi-position member -> 역할 변경. Slot expansion is a later feature; the data already supports it.
 import { useSearchParams } from 'react-router-dom';
 import { CHARACTERS, SESSION_TEMPLATES } from '@/data/master';
 import { useSave } from '@/state/store';
@@ -9,7 +9,7 @@ import { bandActions } from '@/state/actions';
 import { useGameNav } from '@/app/navigation';
 import { won } from '@/app/format';
 import { CharacterVisual } from '@/components/CharacterVisual';
-import { BottomSheet, Btn, GradeLabel, Section, Tag, Todo } from '@/components/ui';
+import { BottomSheet, Btn, GradeLabel, Notice, Section, Tag } from '@/components/ui';
 import { BandFrame } from './BandFrame';
 
 export function LineupScreen() {
@@ -18,50 +18,50 @@ export function LineupScreen() {
   const { go, back } = useGameNav();
   const slots = lineupView(save);
   const filled = slots.filter((s) => s.kind !== 'EMPTY').length;
+  const empty = slots.length - filled;
   const diag = chemistryDiagnostics(save);
 
-  const openSlot = (index: number) => setParams({ slot: String(index) }); // pushes history -> browser Back closes the sheet
-  const closeSheet = () => back();
+  const openSlot = (index: number) => setParams({ slot: String(index) }); // history push -> browser Back closes the sheet
   const slotParam = params.get('slot');
   const current = slotParam !== null ? slots[Number(slotParam)] : undefined;
 
   return (
     <BandFrame>
       <div className="row row--between">
-        <div className="caps small dim">CURRENT LINEUP {filled}/{lineupCapacity(save)}</div>
-        <div className="xs faint">포지션을 탭해서 편성</div>
+        <div>
+          <div className="label dim caps">현재 라인업</div>
+          <div className="panel__title mt8">CURRENT LINEUP {filled}/{lineupCapacity(save)}</div>
+        </div>
+        {empty > 0 && <Tag tone="amber">빈 자리 {empty}</Tag>}
       </div>
-      <div className="mt8">
+
+      <div className="mt16">
         {slots.map((s) => (
-          <button key={s.index} className="slot" onClick={() => openSlot(s.index)}>
+          <button key={s.index} className={`slot ${s.kind === 'EMPTY' ? 'slot--empty' : ''}`} onClick={() => openSlot(s.index)}>
             <span className="slot__role">{s.label}</span>
-            <span style={{ textAlign: 'left' }}>
-              {s.kind === 'EMPTY' && <span className="slot__empty">+ EMPTY</span>}
-              {s.kind === 'MEMBER' && <span className="slot__name">{s.displayName}</span>}
-              {s.kind === 'SESSION' && <span className="slot__session">SESSION · {s.displayName}</span>}
+            <span className="grow">
+              {s.kind === 'EMPTY' && <span className="slot__empty">+ 비어 있음</span>}
+              {s.kind === 'MEMBER' && <><span className="slot__name">{s.displayName}</span><span className="slot__sub"> · 정식 멤버</span></>}
+              {s.kind === 'SESSION' && <><span className="slot__name">{s.displayName}</span><span className="slot__sub"> · 세션</span></>}
             </span>
-            {s.characterId ? <CharacterVisual id={s.characterId} variant="THUMB" /> : s.kind === 'SESSION' ? <CharacterVisual id="SESSION" /> : <span className="dim">›</span>}
+            {s.characterId
+              ? <CharacterVisual id={s.characterId} variant="THUMB" />
+              : s.kind === 'SESSION' ? <CharacterVisual id="SESSION" /> : <span className="rowcard__chev">›</span>}
           </button>
         ))}
       </div>
 
-      <Section title="조합 진단" aside={<button className="xs accent" onClick={() => go('/band/chemistry')}>CHEMISTRY →</button>}>
+      {empty > 0 && <Notice tone="warn">빈 자리는 정식 멤버를 배치하거나 세션을 고용해 메울 수 있다.</Notice>}
+
+      <Section title="조합 진단" aside={<button className="label accent" onClick={() => go('/band/chemistry')}>자세히 ›</button>}>
         <dl className="kv">
-          <dt>Musical Fit</dt><dd><GradeLabel value={diag.musicalFit} /></dd>
-          <dt>Conflict Risk</dt><dd><GradeLabel value={diag.conflictRisk} /></dd>
+          <dt>음악적 궁합</dt><dd><GradeLabel value={diag.musicalFit} /></dd>
+          <dt>갈등 위험</dt><dd><GradeLabel value={diag.conflictRisk} /></dd>
         </dl>
       </Section>
 
-      <Section title="더 보기">
-        <button className="rowcard rowcard--tap" onClick={() => go('/band/archive')}><span className="grow">Career Archive</span><Tag>Timeline</Tag></button>
-        <button className="rowcard rowcard--tap" onClick={() => go('/band/profile')}><span className="grow">Public Profile</span><Tag>Preview</Tag></button>
-        <button className="rowcard rowcard--tap rowcard--locked" onClick={() => go('/band/fans')}><span className="grow">Fans / Charts</span><Tag>Locked</Tag></button>
-        <button className="rowcard rowcard--tap" onClick={() => go('/band/history')}><span className="grow">History</span><Tag>기본 기록</Tag></button>
-      </Section>
-      <Todo>Lineup은 가변 슬롯 구조. VS 기본은 core 4포지션이며 KEYS 등 추가 포지션은 이후 밴드 구성/성장 기능에서 추가된다 (데이터/액션은 준비됨, UI는 PHASE 2+).</Todo>
-
-      <BottomSheet open={!!current} title={current ? `${current.label} · ${current.kind === 'EMPTY' ? 'ASSIGN' : current.kind}` : ''} onClose={closeSheet}>
-        {current && <SlotSheet view={current} onDone={closeSheet} />}
+      <BottomSheet open={!!current} title={current ? current.label : ''} onClose={back}>
+        {current && <SlotSheet view={current} onDone={back} />}
       </BottomSheet>
     </BandFrame>
   );
@@ -78,16 +78,26 @@ function SlotSheet({ view, onDone }: { view: LineupSlotView; onDone: () => void 
     const otherIdx = slotIndicesForCharacter(save, characterId, index);
     return (
       <div className="col">
-        <div className="row"><CharacterVisual id={characterId} /><div className="grow"><div className="rowcard__title">{CHARACTERS[characterId].name}</div><div className="rowcard__meta">{CHARACTERS[characterId].positions.join(' / ')}</div></div></div>
+        <div className="row">
+          <CharacterVisual id={characterId} />
+          <div className="grow">
+            <div className="rowcard__title">{CHARACTERS[characterId].name}</div>
+            <div className="rowcard__meta">{CHARACTERS[characterId].positions.join(' / ')}</div>
+          </div>
+        </div>
         {otherIdx.length > 0 && (
-          <Section title="ASSIGN ROLE (역할 변경)">
-            {otherIdx.map((i) => (
-              <Btn key={i} full variant="secondary" onClick={() => { bandActions.assignSlot(i, { kind: 'MEMBER', characterId }); onDone(); }}>→ {save.band.lineup[i].slotId}{save.band.lineup[i].assignment ? ' (교체)' : ''}</Btn>
-            ))}
+          <Section title="역할 변경">
+            <div className="col">
+              {otherIdx.map((i) => (
+                <Btn key={i} full variant="secondary" onClick={() => { bandActions.assignSlot(i, { kind: 'MEMBER', characterId }); onDone(); }}>
+                  {save.band.lineup[i].slotId}로 이동{save.band.lineup[i].assignment ? ' (교체)' : ''}
+                </Btn>
+              ))}
+            </div>
           </Section>
         )}
-        <Btn full variant="secondary" onClick={() => go(`/band/members/${characterId}`)}>DETAIL</Btn>
-        <Btn full variant="ghost" onClick={() => { bandActions.assignSlot(index, null); onDone(); }}>REMOVE FROM LINEUP</Btn>
+        <Btn full variant="secondary" onClick={() => go(`/band/members/${characterId}`)}>자세히 보기</Btn>
+        <Btn full variant="ghost" onClick={() => { bandActions.assignSlot(index, null); onDone(); }}>라인업에서 빼기</Btn>
       </div>
     );
   }
@@ -96,30 +106,59 @@ function SlotSheet({ view, onDone }: { view: LineupSlotView; onDone: () => void 
     const hire = view.assignment?.kind === 'SESSION' ? save.sessionHires[view.assignment.instanceId] : undefined;
     return (
       <div className="col">
-        <div className="rowcard"><CharacterVisual id="SESSION" /><div className="grow"><div className="rowcard__title">Generic Session</div><div className="rowcard__meta">{hire ? `${won(hire.weeklyCost)}/주 · ~W${hire.endWeek}` : ''}</div></div></div>
-        <Btn full variant="secondary" disabled>OFFER PERMANENT CONTRACT</Btn>
-        <div className="xs faint">generic session은 정식 영입 대상이 아니다. 고정 캐릭터 세션(C13/C15)만 조건 충족 시 열린다 (IA §11).</div>
-        <Btn full variant="ghost" onClick={() => { bandActions.assignSlot(index, null); onDone(); }}>END SESSION</Btn>
+        <div className="rowcard">
+          <CharacterVisual id="SESSION" />
+          <div className="grow">
+            <div className="rowcard__title">{view.displayName}</div>
+            <div className="rowcard__meta">{hire ? `${won(hire.weeklyCost)} / 주 · ${hire.endWeek}주차까지` : ''}</div>
+          </div>
+        </div>
+        <Notice>세션은 잠시 자리를 메워주는 연주자다. 정식 영입 제안은 이 자리에서는 할 수 없다.</Notice>
+        <Btn full variant="ghost" onClick={() => { bandActions.assignSlot(index, null); onDone(); }}>세션 계약 종료</Btn>
       </div>
     );
   }
 
   return (
     <div className="col">
-      <Section title="USE MEMBER">
-        {available.length === 0 && <div className="xs dim">이 포지션에 배치할 수 있는 보유 멤버가 없다.</div>}
-        {available.map((id) => (
-          <button key={id} className="rowcard rowcard--tap" onClick={() => { bandActions.assignSlot(index, { kind: 'MEMBER', characterId: id }); onDone(); }}>
-            <CharacterVisual id={id} /><span className="grow"><div className="rowcard__title">{CHARACTERS[id].name}</div><div className="rowcard__meta">{CHARACTERS[id].positions.join(' / ')}</div></span>
-          </button>
-        ))}
+      <Section title="정식 멤버 배치">
+        {available.length === 0 && <Notice>이 포지션에 배치할 수 있는 멤버가 아직 없다.</Notice>}
+        <div className="col">
+          {available.map((id) => (
+            <div key={id} className="rowcard">
+              <CharacterVisual id={id} />
+              <div className="grow">
+                <div className="rowcard__title">{CHARACTERS[id].name}</div>
+                <div className="rowcard__meta">{CHARACTERS[id].positions.join(' / ')}</div>
+              </div>
+              <Btn size="sm" variant="secondary" onClick={() => { bandActions.assignSlot(index, { kind: 'MEMBER', characterId: id }); onDone(); }}>배치</Btn>
+            </div>
+          ))}
+        </div>
       </Section>
-      <Section title="HIRE SESSION">
-        {sessions.map((t) => (
-          <button key={t.templateId} className="rowcard rowcard--tap" onClick={() => { bandActions.hireSession(index, t.templateId); onDone(); }}>
-            <CharacterVisual id="SESSION" /><span className="grow"><div className="rowcard__title">{t.label}</div><div className="rowcard__meta">{t.durationWeeks}주 · {won(t.weeklyCost)}/주 · 실력 {t.roughSkill} · 신뢰도 {t.reliability}</div></span>
-          </button>
-        ))}
+
+      <Section title="세션 고용">
+        <div className="col">
+          {sessions.map((t) => (
+            <div key={t.templateId} className="rowcard rowcard--stack">
+              <div className="row">
+                <CharacterVisual id="SESSION" />
+                <div className="grow">
+                  <div className="rowcard__title">{t.label}</div>
+                  <div className="rowcard__meta">{slot} · {t.durationWeeks}주 계약</div>
+                </div>
+              </div>
+              <dl className="kv mt12">
+                <dt>주당 비용</dt><dd>{won(t.weeklyCost)}</dd>
+                <dt>실력</dt><dd>{t.roughSkill}</dd>
+                <dt>신뢰도</dt><dd>{t.reliability}</dd>
+              </dl>
+              <div className="mt12">
+                <Btn variant="amber" full onClick={() => { bandActions.hireSession(index, t.templateId); onDone(); }}>이 포지션에 고용</Btn>
+              </div>
+            </div>
+          ))}
+        </div>
       </Section>
     </div>
   );

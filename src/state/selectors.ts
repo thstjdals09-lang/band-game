@@ -1,7 +1,7 @@
 // Derived values (Character Master §14: current derived values are recomputed, never stored).
 // UI must not compute formulas itself - it reads selectors (Implementation Guardrails: "UI에서 계산식을 직접 작성하지 않는다").
 import {
-  ACTIVITIES, CHARACTERS, FACILITIES, PROTOTYPE_BALANCE, SESSION_TEMPLATES, SLOT_DEFINITIONS, VENUES,
+  ACTIVITIES, CHARACTERS, CONTRACT_PROFILES, FACILITIES, PROTOTYPE_BALANCE, SESSION_TEMPLATES, SLOT_DEFINITIONS, VENUES,
   type CharacterId, type SlotId, type VisibleStats,
 } from '@/data/master';
 import type { LineupAssignment, SaveData } from './save/schema';
@@ -113,10 +113,10 @@ export function scheduleWarnings(save: SaveData): ScheduleWarning[] {
   const out: ScheduleWarning[] = [];
   save.band.activeMembers.forEach((id) => {
     const c = save.characterStates[id]?.condition;
-    if (c && c.energy < 40) out.push({ level: 'WARN', text: `${CHARACTERS[id].name} energy is low.` });
-    if (c && c.stress > 60) out.push({ level: 'RISK', text: `${CHARACTERS[id].name} stress is high.` });
+    if (c && c.energy < 40) out.push({ level: 'WARN', text: `${CHARACTERS[id].name} 체력이 떨어져 있다` });
+    if (c && c.stress > 60) out.push({ level: 'RISK', text: `${CHARACTERS[id].name} 스트레스가 높다` });
   });
-  if (projectedExpense(save) > save.economy.cash) out.push({ level: 'RISK', text: 'Projected expense exceeds cash.' });
+  if (projectedExpense(save) > save.economy.cash) out.push({ level: 'RISK', text: '예상 지출이 보유 자금을 넘는다' });
   return out;
 }
 
@@ -168,4 +168,37 @@ export function conditionWord(v: number): string {
   if (v >= 50) return '보통';
   if (v >= 30) return '낮음';
   return '위험';
+}
+
+// ---- Candidate fit facts (COMPARE / Candidate Detail) ------------------------------------
+// Only FACTS derived from existing master + save data. Diagnostics that need the (not yet built)
+// simulation engine are returned as 'unknown' with the reason - never as an invented number.
+export interface CandidateFitUnknown { label: string; reason: string }
+export interface CandidateFit {
+  contractBurden: string;
+  sharedTags: string[];
+  fillsSlotLabel: string | null;
+  unknown: CandidateFitUnknown[];
+}
+
+export function candidateFit(save: SaveData, id: CharacterId): CandidateFit {
+  const def = CHARACTERS[id];
+  const bandTags = new Set(save.band.activeMembers.flatMap((m) => CHARACTERS[m].musicTags));
+  const sharedTags = def.musicTags.filter((t) => bandTags.has(t));
+  const emptySlot = save.band.lineup.find((s) => !s.assignment && isCompatible(id, s.slotId));
+  const audition = Object.values(save.auditions).find((a) => a.status === 'OPEN' && a.candidateIds.includes(id));
+  const jammed = !!audition?.revealedInformation[id]?.includes('JAM_SESSION');
+  const noBand = save.band.activeMembers.length === 0;
+  const reason = noBand ? '라인업 멤버가 아직 없다' : jammed ? '함께 활동해야 드러난다' : '합주해 보면 알 수 있다';
+  return {
+    contractBurden: CONTRACT_PROFILES[def.contractProfileId]?.burden ?? '?',
+    sharedTags,
+    fillsSlotLabel: emptySlot ? SLOT_DEFINITIONS[emptySlot.slotId].label : null,
+    unknown: [
+      { label: '음악적 궁합', reason },
+      { label: '창작 균형', reason },
+      { label: '라이브 기여', reason },
+      { label: '갈등 위험', reason },
+    ],
+  };
 }

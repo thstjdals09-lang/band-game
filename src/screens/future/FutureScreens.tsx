@@ -7,24 +7,51 @@ import { Panel } from '@/components/Panel';
 import { EmptyState, Section, Tag } from '@/components/ui';
 import { CharacterVisual } from '@/components/CharacterVisual';
 
-export const FansChartsScreen = () => <FutureShell title="FANS / CHARTS" iaLocation="BAND" initialState="Placeholder / Locked" />;
-export const RivalsScreen = () => <FutureShell title="RIVALS" iaLocation="OUTSIDE" initialState="일부 소개" description="핵심 라이벌 밴드는 고정 캐릭터와 고유 서사를 가진다 (GDD §07). Local Act Chapter에서 소개." />;
-export const RankingsScreen = () => <FutureShell title="RANKINGS" iaLocation="OUTSIDE" initialState="Locked" />;
-export const LabelsScreen = () => <FutureShell title="LABELS" iaLocation="OUTSIDE" initialState="Locked" description="대형 레이블 / 인디 레이블 / 완전 독립 (GDD §07)." />;
-export const WorldOverseasScreen = () => <FutureShell title="WORLD / OVERSEAS" iaLocation="OUTSIDE" initialState="Locked" />;
-export const StaffScreen = () => <FutureShell title="STAFF" iaLocation="MANAGEMENT" initialState="Locked / Shell" description="프로듀서 / 트레이너 / PR 매니저 / 스타일리스트 / 투어 매니저 (GDD §05) - 경영 확장 요소." />;
-export const EquipmentScreen = () => <FutureShell title="EQUIPMENT" iaLocation="MANAGEMENT" initialState="Shell" description="악기/장비 성장 (IA §21)." />;
+export const FansChartsScreen = () => (
+  <FutureShell title="팬 / 차트" iaLocation="BAND" initialState="Placeholder / Locked"
+    description="팬층과 차트는 음원을 내고 나서 볼 수 있다." />
+);
+export const RivalsScreen = () => (
+  <FutureShell title="라이벌" iaLocation="OUTSIDE" initialState="일부 소개"
+    description="같은 씬에서 경쟁할 밴드들은 아직 만나지 못했다." />
+);
+export const RankingsScreen = () => (
+  <FutureShell title="랭킹" iaLocation="OUTSIDE" initialState="Locked"
+    description="랭킹은 지역에서 이름이 알려진 뒤에 열린다." />
+);
+export const LabelsScreen = () => (
+  <FutureShell title="레이블" iaLocation="OUTSIDE" initialState="Locked"
+    description="레이블은 밴드가 눈에 띄기 시작하면 먼저 연락해 온다." />
+);
+export const WorldOverseasScreen = () => (
+  <FutureShell title="해외" iaLocation="OUTSIDE" initialState="Locked"
+    description="해외 무대는 아직 아주 먼 이야기다." />
+);
+export const StaffScreen = () => (
+  <FutureShell title="스태프" iaLocation="MANAGEMENT" initialState="Locked / Shell"
+    description="사무 공간이 생기면 함께 일할 사람을 둘 수 있다." />
+);
+export const EquipmentScreen = () => (
+  <FutureShell title="장비" iaLocation="MANAGEMENT" initialState="Shell"
+    description="장비 관리는 장비 공간을 지은 뒤에 열린다." />
+);
 
 /** Career Archive - 기본 Timeline (careerHistory entries). */
 export function CareerArchiveScreen() {
   const save = useSave();
+  const TYPE_LABEL: Record<string, string> = {
+    MILESTONE: '이정표', LINEUP_CHANGE: '라인업', CONTRACT: '계약', RELEASE: '발매', FACILITY: '시설', BAND: '밴드',
+  };
   return (
-    <Panel title="CAREER ARCHIVE" subtitle="BAND · 기본 Timeline" nav="back">
-      {save.careerHistory.length === 0 && <EmptyState text="기록 없음" />}
+    <Panel title="커리어 기록" nav="back">
+      {save.careerHistory.length === 0 && <EmptyState text="아직 기록이 없다." />}
       {save.careerHistory.map((h, i) => (
-        <div key={i} className="rowcard"><span className="mono xs dim">W{h.week}</span><span className="grow small">{h.text}</span><Tag>{h.type}</Tag></div>
+        <div key={i} className="rowcard">
+          <span className="mono meta dim" style={{ width: 44 }}>{h.week}주</span>
+          <span className="grow">{h.text}</span>
+          <Tag tone="mute">{TYPE_LABEL[h.type] ?? h.type}</Tag>
+        </div>
       ))}
-      <div className="todo mt12">TODO · 앨범·포스터·티켓·트로피 전시(공간에 실제로 쌓이는 Career Memory)는 에셋 도착 후 Basecamp 오브젝트로 연결.</div>
     </Panel>
   );
 }
@@ -34,42 +61,49 @@ export function PublicProfileScreen() {
   const save = useSave();
   const lineup = lineupView(save).filter((s) => s.kind !== 'EMPTY');
   return (
-    <Panel title="PUBLIC PROFILE" subtitle="Preview" nav="back">
-      <div className="rowcard__title" style={{ fontSize: 18 }}>{save.band.name ?? 'PLAYER BAND'}</div>
-      <div className="tags mt8"><Tag>{save.band.careerTier}</Tag><Tag>Fans {save.band.metrics.fans}</Tag>{save.band.brandTags.map((t) => <Tag key={t}>{t}</Tag>)}</div>
+    <Panel title="공개 프로필" subtitle="미리보기" nav="back">
+      <div className="panel__title" style={{ fontSize: 22 }}>{save.band.name ?? '이름 없는 밴드'}</div>
+      <div className="tags mt12">
+        <Tag>팬 {save.band.metrics.fans}</Tag>
+        <Tag>명성 {save.band.metrics.fame}</Tag>
+        {save.band.brandTags.map((t) => <Tag key={t}>{t}</Tag>)}
+      </div>
       <Section title="현재 라인업">
-        {lineup.length === 0 && <EmptyState text="라인업 없음" />}
-        <div className="row wrap">
+        {lineup.length === 0 && <EmptyState text="라인업이 비어 있다." />}
+        <div className="row wrap" style={{ gap: 14 }}>
           {lineup.map((s) => (
-            <div key={s.slot} style={{ textAlign: 'center' }}>
+            <div key={s.index} className="center">
               <CharacterVisual id={s.characterId ?? 'SESSION'} />
-              <div className="xs">{s.characterId ? CHARACTERS[s.characterId].name : 'SESSION'}</div>
-              <div className="xs faint">{s.label}</div>
+              <div className="meta mt8">{s.characterId ? CHARACTERS[s.characterId].name : '세션'}</div>
+              <div className="label faint">{s.label}</div>
             </div>
           ))}
         </div>
       </Section>
-      <div className="todo mt12">TODO · 공유 링크 / 다른 플레이어 프로필 구경은 소셜 단계 (GDD §08).</div>
     </Panel>
   );
 }
 
-/** History - 기본 기록 (performance snapshots + lineup changes). */
+/** History - 기본 기록 (performance snapshots). */
 export function HistoryScreen() {
   const save = useSave();
+  const GRADE_WORD: Record<string, string> = {
+    'GREAT SHOW': '최고의 무대', 'GOOD SHOW': '좋은 공연', OKAY: '무난한 공연', DISASTER: '아쉬운 밤',
+  };
   return (
-    <Panel title="HISTORY" subtitle="BAND / Archive · 기본 기록" nav="back">
-      <Section title="공연 기록 (Snapshot)">
-        {save.performanceHistory.length === 0 && <div className="xs faint">아직 없음</div>}
+    <Panel title="히스토리" nav="back">
+      <Section title="공연 기록">
+        {save.performanceHistory.length === 0 && <EmptyState text="아직 무대에 선 적이 없다." />}
         {save.performanceHistory.map((p) => (
-          <div key={p.id} className="rowcard" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-            <div className="row row--between"><span className="rowcard__title">{p.venueName}</span><Tag tone="accent">{p.grade}</Tag></div>
-            <div className="rowcard__meta">W{p.week} · 관객 {p.audience} · 팬 +{p.fansDelta} · {p.lineup.map((l) => l.label).join(' / ')}</div>
+          <div key={p.id} className="rowcard rowcard--stack">
+            <div className="row row--between">
+              <span className="rowcard__title lead">{p.venueName}</span>
+              <Tag tone="accent">{GRADE_WORD[p.grade] ?? p.grade}</Tag>
+            </div>
+            <div className="rowcard__meta mt8">{p.week}주차 · 관객 {p.audience}명 · 팬 +{p.fansDelta}</div>
+            <div className="rowcard__meta">{p.lineup.map((l) => l.label).join(' · ')}</div>
           </div>
         ))}
-      </Section>
-      <Section title="이벤트 기록">
-        {save.eventHistory.length === 0 && <div className="xs faint">아직 없음</div>}
       </Section>
     </Panel>
   );

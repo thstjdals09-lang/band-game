@@ -47,11 +47,11 @@ export interface RouteMeta {
 export interface RouteDef { path: string; meta: RouteMeta; element: ReactElement }
 
 export const DOCK_ITEMS: { id: DockId; label: string; path: string; iconKey: string }[] = [
-  { id: 'band', label: 'BAND', path: '/band', iconKey: 'ICON_DOCK_BAND' },
-  { id: 'schedule', label: 'SCHEDULE', path: '/schedule', iconKey: 'ICON_DOCK_SCHEDULE' },
-  { id: 'audition', label: 'AUDITION', path: '/audition', iconKey: 'ICON_DOCK_AUDITION' },
-  { id: 'management', label: 'MANAGEMENT', path: '/management', iconKey: 'ICON_DOCK_MANAGEMENT' },
-  { id: 'outside', label: 'OUTSIDE', path: '/outside', iconKey: 'ICON_DOCK_OUTSIDE' },
+  { id: 'band', label: '밴드', path: '/band', iconKey: 'ICON_DOCK_BAND' },
+  { id: 'schedule', label: '일정', path: '/schedule', iconKey: 'ICON_DOCK_SCHEDULE' },
+  { id: 'audition', label: '오디션', path: '/audition', iconKey: 'ICON_DOCK_AUDITION' },
+  { id: 'management', label: '경영', path: '/management', iconKey: 'ICON_DOCK_MANAGEMENT' },
+  { id: 'outside', label: '외부', path: '/outside', iconKey: 'ICON_DOCK_OUTSIDE' },
 ];
 
 const panel = (dock: DockId, title: string, topLevel = false): RouteMeta => ({ layer: 'panel', dock, topLevel, title, status: 'implemented' });

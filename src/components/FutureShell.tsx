@@ -1,6 +1,7 @@
-// Placeholder screen for long-term features (IA §24 장기 기능 Shell 배치 / GDD §09 껍데기 화면).
+// Placeholder screen for long-term features. Player-facing copy only - the IA placement note
+// is a developer diagnostic and is hidden unless diagnostics are on.
 import { Panel } from './Panel';
-import { Todo } from './ui';
+import { DevNote, EmptyState } from './ui';
 
 interface Props {
   title: string;
@@ -12,12 +13,9 @@ interface Props {
 
 export function FutureShell({ title, iaLocation, initialState, description, nav = 'back' }: Props) {
   return (
-    <Panel title={title} subtitle={`${iaLocation} · ${initialState}`} nav={nav}>
-      <div className="empty">
-        <div className="caps small">{initialState}</div>
-        <p className="mt8">{description ?? '후속 확장 기능. Vertical Slice에서는 route / 잠금 상태 / placeholder만 존재한다.'}</p>
-      </div>
-      <Todo>이 화면은 IA v1.1 §24 Shell 배치에 따라 구조만 존재한다. 실제 기능은 Local Act Chapter 이후.</Todo>
+    <Panel title={title} subtitle="준비 중" nav={nav}>
+      <EmptyState text={description ?? '이 기능은 아직 열리지 않았다. 밴드가 자리를 잡으면 여기에서 확인할 수 있다.'} />
+      <DevNote>{iaLocation} · {initialState}</DevNote>
     </Panel>
   );
 }

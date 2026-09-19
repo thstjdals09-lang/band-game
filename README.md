@@ -37,12 +37,15 @@ src/
 - **UI는 계산식을 쓰지 않는다**: 화면은 selector/action만 호출.
 - **내부 rarity 비노출**: `internalRarity`는 UI가 읽지 않는다.
 - **HOME은 탭이 아니다**: Dock은 BAND / SCHEDULE / AUDITION / MANAGEMENT / OUTSIDE 5개. HOME에서는 어느 Dock도 Active가 아니다. 몰입 플로우(Candidate Detail, Contract, Week Resolution, Performance, Result)에서는 Dock/HUD를 숨긴다.
-- **에셋 없는 곳은 placeholder**: CSS로 그림을 흉내내지 않는다. `assets/registry.ts`에 URL만 넣으면 교체된다.
+- **에셋 없는 곳은 중립 placeholder**: CSS로 아트를 흉내내지 않는다. 키 문자열은 플레이어 화면에 절대 보이지 않고 `data-asset` 속성으로만 남는다. `assets/registry.ts`에 URL만 넣으면 교체된다.
+- **개발 정보 분리**: asset key와 구현 메모는 `/dev`의 diagnostics 토글을 켤 때만 보인다. 일반 플레이 화면에는 TODO·문서 참조·키 문자열이 없다.
 - **Back 규칙**: 최상위 패널 Close → HOME, 하위 패널 Back → 직전, Week Resolution / Performance는 Back 잠금(`useLockBack`). 브라우저 Back과 게임 내 Back이 같은 곳으로 가도록 history를 그대로 사용.
 
 ## Prototype Spine (현재 클릭 가능한 흐름)
 
 NEW GAME → BASECAMP → AUDITION → Candidate Detail → (Shortlist / Compare) → Contract → BAND / Lineup → Session Hire → SCHEDULE → NEXT WEEK → Week Resolution (→ 밴드 이름 이벤트 / NEW SONG) → BASECAMP 변화 → Opportunity Inbox → Performance Prep → PERFORMANCE → Choice → RESULT → MANAGEMENT / FACILITIES → BUILD → Expanded Basecamp
+
+QA용 테스트 프리셋(A~H)은 `/dev`에서 적용한다. 플레이어 UI에서는 접근할 수 없다.
 
 시뮬레이션 수치는 전부 placeholder다. 밸런스 값은 `src/data/master/prototypeBalance.ts`에 격리되어 있으며 Source of Truth가 아니다(`TODO(PHASE2 engine)` / `TODO(balance)`).
 

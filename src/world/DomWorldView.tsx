@@ -1,12 +1,12 @@
-// Placeholder world renderer (DOM). Shows explicit placeholder boxes at scene positions.
-// Replace with a Phaser isometric renderer implementing WorldViewProps (see world/index.ts).
+// Neutral world renderer (DOM) used until the Phaser isometric renderer exists.
+// Shows actors as figure silhouettes and objects as labelled frames - no asset key strings.
 import { PlaceholderAsset } from '@/components/PlaceholderAsset';
 import type { WorldViewProps } from './types';
 
 export function DomWorldView({ scene, onSelectActor, onSelectHotspot }: WorldViewProps) {
   return (
     <div className="world" data-stage={scene.stage} data-mode={scene.mode}>
-      <div className="world__bg"><PlaceholderAsset assetKey={scene.backgroundKey} variant="fill" /></div>
+      <div className="world__bg"><PlaceholderAsset assetKey={scene.backgroundKey} variant="fill" kind="scene" /></div>
 
       {scene.hotspots.map((h) => (
         <button
@@ -15,9 +15,10 @@ export function DomWorldView({ scene, onSelectActor, onSelectHotspot }: WorldVie
           style={{ left: `${h.x * 100}%`, top: `${h.y * 100}%` }}
           onClick={() => onSelectHotspot?.(h)}
           data-asset={h.assetKey}
+          data-hotspot={h.id}
         >
           <span>{h.label}</span>
-          {h.state && <span className="xs">{h.state}</span>}
+          {h.stateLabel && <span className="world__hotspot-state">{h.stateLabel}</span>}
           {h.badge && <span className="marker">{h.badge}</span>}
         </button>
       ))}
@@ -29,8 +30,9 @@ export function DomWorldView({ scene, onSelectActor, onSelectHotspot }: WorldVie
           style={{ left: `${a.x * 100}%`, top: `${a.y * 100}%` }}
           onClick={() => onSelectActor?.(a)}
           aria-label={a.label}
+          data-actor={a.id}
         >
-          <PlaceholderAsset assetKey={a.assetKey} />
+          <PlaceholderAsset assetKey={a.assetKey} kind="character" />
           <span className="world__actor-name">{a.label}</span>
           {a.badge && <span className="marker">{a.badge}</span>}
         </button>

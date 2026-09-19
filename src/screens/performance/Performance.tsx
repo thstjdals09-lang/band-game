@@ -1,11 +1,12 @@
-// PERFORMANCE (IA §19, Visual Bible Hero 04): full-screen stage, no dock / no management HUD.
-// Not a rhythm game: simulation runs, player only answers 1~2 moment choices. Back locked.
+// PERFORMANCE (IA §19): full-screen stage, no dock / no management HUD.
+// Not a rhythm game: the simulation runs and the player only answers 1~2 moment choices. Back locked.
 import { useState } from 'react';
 import { CHARACTERS, PROTOTYPE_BALANCE, VENUES } from '@/data/master';
 import { useSave } from '@/state/store';
 import { debutSongRequirement, lineupView, songList } from '@/state/selectors';
 import { performanceActions } from '@/state/actions';
 import { useGameNav, useLockBack } from '@/app/navigation';
+import { subjectParticle } from '@/app/format';
 import { PlaceholderAsset } from '@/components/PlaceholderAsset';
 import { CharacterVisual } from '@/components/CharacterVisual';
 import { Btn, EmptyState } from '@/components/ui';
@@ -16,7 +17,7 @@ const B = PROTOTYPE_BALANCE.performance;
 type Beat =
   | { kind: 'INTRO' }
   | { kind: 'SONG'; index: number; title: string }
-  | { kind: 'CHOICE'; memberName: string; prompt: string; options: { id: string; label: string; energy: number }[] }
+  | { kind: 'CHOICE'; prompt: string; options: { id: string; label: string; energy: number }[] }
   | { kind: 'OUTRO' };
 
 export function PerformanceScreen() {
@@ -40,11 +41,13 @@ export function PerformanceScreen() {
     setlist.forEach((s, i) => {
       list.push({ kind: 'SONG', index: i, title: s.title });
       if (i === 0) {
-        // Moment choice (IA §19 example pattern). Effects follow EVT_ARIN_01 style: LIVE_PEAK_UP+ACCIDENT_RISK_UP vs STABILITY_UP.
         list.push({
-          kind: 'CHOICE', memberName: name,
-          prompt: `${name}이(가) 예정된 기타 솔로보다 더 길게 이어가려 합니다. 관객 반응이 뜨겁습니다.`,
-          options: [{ id: 'PUSH', label: '그대로 밀어붙인다', energy: B.choicePushEnergy }, { id: 'PLAN', label: '계획대로 간다', energy: B.choicePlanEnergy }],
+          kind: 'CHOICE',
+          prompt: `${name}${subjectParticle(name)} 예정된 기타 솔로보다 더 길게 이어가려 합니다. 관객 반응이 뜨겁습니다.`,
+          options: [
+            { id: 'PUSH', label: '그대로 밀어붙인다', energy: B.choicePushEnergy },
+            { id: 'PLAN', label: '계획대로 간다', energy: B.choicePlanEnergy },
+          ],
         });
       }
     });
@@ -56,7 +59,18 @@ export function PerformanceScreen() {
   const [choices, setChoices] = useState<{ prompt: string; choiceId: string }[]>([]);
 
   if (!pending || !venue || !opening || !req.met || lineup.length === 0) {
-    return <div className="imm"><div className="imm__stage" style={{ padding: 16 }}><EmptyState text={`공연을 시작할 수 없다 (예정 공연 / Opening Song / 곡 ${req.have}/${req.required} / 라인업 필요).`} action={<Btn variant="secondary" onClick={() => go('/performance/prep', { replace: true })}>PREP</Btn>} /></div></div>;
+    return (
+      <div className="imm">
+        <div className="imm__stage">
+          <div className="imm__scroll">
+            <EmptyState
+              text={`공연을 시작할 수 없다. 예정된 공연, 오프닝 곡, 곡 ${req.have}/${req.required}, 라인업이 모두 필요하다.`}
+              action={<Btn variant="secondary" onClick={() => go('/performance/prep', { replace: true })}>공연 준비로</Btn>}
+            />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const beat = beats[i];
@@ -68,10 +82,11 @@ export function PerformanceScreen() {
   };
 
   const finish = () => {
-    // TODO(PHASE2 engine): result = 실력 + 곡/세트리스트 + 준비도 + 컨디션 + 장비 + 지역 적합도 + 팀워크 (+ small RNG on "performance" stream).
+    // TODO(PHASE2 engine): result = 실력 + 곡/세트리스트 + 준비도 + 컨디션 + 장비 + 지역 적합도 + 팀워크 (+ small RNG).
     const peak = Math.min(100, energy);
     const audience = Math.min(venue.capacity, B.baseAudience + Math.round(save.band.metrics.fans * B.audiencePerFan));
-    const grade: PerformanceSnapshot['grade'] = peak >= B.gradeThresholds.great ? 'GREAT SHOW' : peak >= B.gradeThresholds.good ? 'GOOD SHOW' : peak >= B.gradeThresholds.okay ? 'OKAY' : 'DISASTER';
+    const grade: PerformanceSnapshot['grade'] =
+      peak >= B.gradeThresholds.great ? 'GREAT SHOW' : peak >= B.gradeThresholds.good ? 'GOOD SHOW' : peak >= B.gradeThresholds.okay ? 'OKAY' : 'DISASTER';
     performanceActions.commit({
       venueId: venue.id, venueName: venue.name,
       lineup: lineup.map((s) => ({ slot: s.slot, label: s.displayName ?? '' })),
@@ -89,34 +104,40 @@ export function PerformanceScreen() {
   return (
     <div className="imm">
       <div className="imm__top">
-        <span className="amber">{venue.name.toUpperCase()}</span>
-        <span>SONG {Math.max(1, songNo)}/{setlist.length}</span>
-        <span className="xs">CROWD</span>
-        <div className="energy"><div className="energy__fill" style={{ width: `${energy}%` }} /></div>
+        <span className="amber strong">{venue.name}</span>
+        <span className="mono">SONG {Math.max(1, songNo)}/{setlist.length}</span>
+        <div className="energy" aria-label="관객 반응"><div className="energy__fill" style={{ width: `${energy}%` }} /></div>
       </div>
+
       <div className="imm__stage">
-        <PlaceholderAsset assetKey={`PERFORMANCE_STAGE_${venue.id}`} variant="fill" />
-        <div style={{ position: 'absolute', left: 0, right: 0, top: '38%', display: 'flex', justifyContent: 'center', gap: 6 }}>
+        <PlaceholderAsset assetKey={`PERFORMANCE_STAGE_${venue.id}`} variant="fill" kind="scene" />
+        <div style={{ position: 'absolute', left: 0, right: 0, top: '34%', display: 'flex', justifyContent: 'center', gap: 8 }}>
           {lineup.map((s) => <CharacterVisual key={s.index} id={s.characterId ?? 'SESSION'} variant="THUMB" />)}
         </div>
-        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '28%' }}><PlaceholderAsset assetKey="PERFORMANCE_CROWD" variant="fill" /></div>
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '26%' }}>
+          <PlaceholderAsset assetKey="PERFORMANCE_CROWD" variant="fill" kind="scene" />
+        </div>
         {beat.kind === 'CHOICE' && (
-          <div className="choice" style={{ position: 'absolute', left: 12, right: 12, bottom: 12 }}>
+          <div className="choice" style={{ position: 'absolute', left: 14, right: 14, bottom: 14 }}>
             <div className="choice__title">라이브 순간 선택</div>
             <p className="choice__text">{beat.prompt}</p>
             <div className="choice__actions">
               {beat.options.map((o) => (
-                <Btn key={o.id} variant={o.id === 'PUSH' ? 'primary' : 'secondary'} full onClick={() => { setChoices((c) => [...c, { prompt: beat.prompt, choiceId: o.id }]); advance(o.energy); }}>{o.label}</Btn>
+                <Btn key={o.id} variant={o.id === 'PUSH' ? 'primary' : 'secondary'} size="lg" full
+                  onClick={() => { setChoices((c) => [...c, { prompt: beat.prompt, choiceId: o.id }]); advance(o.energy); }}>
+                  {o.label}
+                </Btn>
               ))}
             </div>
           </div>
         )}
       </div>
-      <div className="imm__bottom col">
-        {beat.kind === 'INTRO' && <><div className="small dim">무대에 오른다. 관객이 조용해진다.</div><Btn variant="secondary" full onClick={() => advance(B.introEnergy)}>TAP TO CONTINUE</Btn></>}
-        {beat.kind === 'SONG' && <><div className="small"><span className="dim">NOW PLAYING</span> · {beat.title}</div><Btn variant="secondary" full onClick={() => advance(B.songEnergy)}>TAP TO CONTINUE</Btn></>}
-        {beat.kind === 'CHOICE' && <div className="xs faint">선택을 기다리는 중…</div>}
-        {beat.kind === 'OUTRO' && <><div className="small dim">마지막 곡이 끝났다.</div><Btn variant="primary" full onClick={finish}>FINISH SHOW</Btn></>}
+
+      <div className="imm__bottom">
+        {beat.kind === 'INTRO' && (<><div className="dim">무대에 오른다. 객석이 조용해진다.</div><Btn variant="secondary" size="lg" full onClick={() => advance(B.introEnergy)}>계속</Btn></>)}
+        {beat.kind === 'SONG' && (<><div><span className="label dim caps">지금 연주 중</span><div className="lead strong">{beat.title}</div></div><Btn variant="secondary" size="lg" full onClick={() => advance(B.songEnergy)}>계속</Btn></>)}
+        {beat.kind === 'CHOICE' && <div className="dim meta">선택을 기다리는 중…</div>}
+        {beat.kind === 'OUTRO' && (<><div className="dim">마지막 곡이 끝났다.</div><Btn variant="primary" size="lg" full onClick={finish}>무대를 내려온다</Btn></>)}
       </div>
     </div>
   );
