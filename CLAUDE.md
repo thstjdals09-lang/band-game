@@ -76,6 +76,13 @@
 - **DEV 칩**: /dev를 한 번 열면 chrome 레이어 우측 상단에 작고 흐림한 칩이 생긴다. /dev → Access에서 끄면 다시 숨겨지고 제스처만 남는다.
 - `devAccess`는 devStore(localStorage `band-game.dev`)에만 있고 SaveData와 무관하다. 몰입 화면(공연/주간 정리)에서는 chrome과 함께 숨겨진다.
 
+### 2026-09-19 — Dev 튜닝 값 저장
+- 진단: 캐릭터 height는 이미 devStore에 저장되어 HOME에도 적용되고 있었다(70→90px, 리로드 유지 확인). 저장되지 않던 것은 **카메라 즐** 하나루였다(랩 로컬 useState).
+- `playZoom`을 devStore로 옮겨 저장하고, BasecampWorld가 play 카메라에 적용한다. 랩 밖 HOME과 새로고침 모두 유지.
+- 랩의 stage / viewport preset도 저장되어 다시 열면 그 상태로 돌아온다.
+- 랩 맨 위에 "저장 상태" 섹션 추가: 현재 값과 기본값 차이(*) 표시, RESET ALL TUNING 버튼.
+- devStore는 localStorage `band-game.dev`에만 있고 SaveData와 무관하다. 기본값은 여전히 코드의 defaultZoom / DEFAULT_TEST_SPRITE이다.
+
 ## 판단 필요 / TODO (문서에 없거나 모호한 항목)
 
 - ~~Growth Curve 표기~~ 승인됨(PHASE 1.1): C05 = HIGH_START_SLOW, C13 = HIGH_START.

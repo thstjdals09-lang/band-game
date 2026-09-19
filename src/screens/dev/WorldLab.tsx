@@ -1,10 +1,10 @@
 // ISOMETRIC WORLD LAB - QA only, not production UI. Reachable at /dev/world.
 // Verifies grid, footprints, depth, interaction tiles, spawn points and camera fit across
 // several phone viewports WITHOUT ever moving an object's map coordinate.
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useSave } from '@/state/store';
 import { useDevStore, type WorldDebugToggles } from '@/state/devStore';
-import { TEST_SPRITE_LIMITS } from '@/world/assets/testSprite';
+import { DEFAULT_TEST_SPRITE, TEST_SPRITE_LIMITS } from '@/world/assets/testSprite';
 import { DEFAULT_CAMERA_CONFIG } from '@/world';
 import { BasecampWorld } from '@/world/BasecampWorld';
 import {
@@ -42,9 +42,15 @@ export function WorldLabScreen() {
   const sprite = useDevStore((s) => s.testSprite);
   const setSprite = useDevStore((s) => s.setTestSprite);
   const resetSprite = useDevStore((s) => s.resetTestSprite);
-  const [stage, setStage] = useState(1);
-  const [vp, setVp] = useState(VIEWPORTS[2]);
-  const [zoom, setZoom] = useState(DEFAULT_CAMERA_CONFIG.defaultZoom);
+  const zoom = useDevStore((s) => s.playZoom);
+  const setZoom = useDevStore((s) => s.setPlayZoom);
+  const lab = useDevStore((s) => s.lab);
+  const setLab = useDevStore((s) => s.setLab);
+  const resetWorldTuning = useDevStore((s) => s.resetWorldTuning);
+  const stage = lab.stage;
+  const setStage = (v: number) => setLab({ stage: v });
+  const vp = VIEWPORTS.find((v) => v.label === lab.viewport) ?? VIEWPORTS[2];
+  const setVp = (v: Preset) => setLab({ viewport: v.label });
 
   const insets = readChromeInsets();
   const map = basecampMapForStage(stage);
@@ -71,6 +77,23 @@ export function WorldLabScreen() {
 
   return (
     <Panel title="ISOMETRIC WORLD LAB" subtitle="QA only" nav="back">
+      <Section title="저장 상태">
+        <div className="rowcard rowcard--stack">
+          <div className="rowcard__meta">
+            아래 값은 이 기기에 저장되어(localStorage) 랩 밖의 HOME에도 그대로 적용되고, 새로고침해도 유지된다.
+          </div>
+          <dl className="kv mt12">
+            <dt>play zoom</dt><dd>{zoom.toFixed(2)}{zoom === DEFAULT_CAMERA_CONFIG.defaultZoom ? '' : ' *'}</dd>
+            <dt>sprite height</dt><dd>{sprite.heightUnits.toFixed(1)} u{sprite.heightUnits === DEFAULT_TEST_SPRITE.heightUnits ? '' : ' *'}</dd>
+            <dt>foot anchor</dt><dd>{sprite.footAnchor.x}, {sprite.footAnchor.y}{sprite.footAnchor.x === DEFAULT_TEST_SPRITE.footAnchor.x && sprite.footAnchor.y === DEFAULT_TEST_SPRITE.footAnchor.y ? '' : ' *'}</dd>
+          </dl>
+          <div className="row mt12">
+            <Btn size="sm" variant="secondary" onClick={resetWorldTuning}>RESET ALL TUNING</Btn>
+            <span className="rowcard__meta">* = 기본값과 다름</span>
+          </div>
+        </div>
+      </Section>
+
       <Section title="Stage">
         <div className="seg">
           <button className={stage === 1 ? 'on' : ''} onClick={() => setStage(1)}>STAGE 1</button>
@@ -91,15 +114,16 @@ export function WorldLabScreen() {
         <div className="row row--between">
           <span className="rowcard__meta">zoom (PROTOTYPE VARIABLE)</span>
           <span className="stepper">
-            <button onClick={() => setZoom((z) => Math.max(DEFAULT_CAMERA_CONFIG.minZoom, +(z - 0.05).toFixed(2)))}>−</button>
+            <button onClick={() => setZoom(Math.max(DEFAULT_CAMERA_CONFIG.minZoom, +(zoom - 0.05).toFixed(2)))}>−</button>
             <span>{zoom.toFixed(2)} · tile {Math.round(PROTOTYPE_PROJECTION.tileWidth * zoom)}px</span>
-            <button onClick={() => setZoom((z) => Math.min(DEFAULT_CAMERA_CONFIG.maxZoom, +(z + 0.05).toFixed(2)))}>+</button>
+            <button onClick={() => setZoom(Math.min(DEFAULT_CAMERA_CONFIG.maxZoom, +(zoom + 0.05).toFixed(2)))}>+</button>
           </span>
         </div>
         <div className="row mt12">
           <Btn size="sm" variant="ghost" onClick={() => setZoom(DEFAULT_CAMERA_CONFIG.defaultZoom)}>RESET</Btn>
+          <span className="rowcard__meta">기본 {DEFAULT_CAMERA_CONFIG.defaultZoom.toFixed(2)}</span>
         </div>
-        <div className="rowcard__meta mt8">방 전체를 맞추지 않는다. 화면 밖은 HOME에서 드래그로 탐색한다.</div>
+        <div className="rowcard__meta mt8">방 전체를 맞추지 않는다. 화면 밖은 HOME에서 드래그로 탐색한다. 이 값은 저장되어 실제 HOME에도 그대로 적용된다.</div>
       </Section>
 
       <Section title="Viewport preset">
@@ -113,7 +137,7 @@ export function WorldLabScreen() {
           style={{ width: vp.width * scale, height: vp.height * scale }}
         >
           <div style={{ width: vp.width, height: vp.height, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-            <BasecampWorld mode="build" cameraMode="play" zoom={zoom} pannable={false} interactive={false} stageOverride={stage} insets={insets} debug={flags} />
+            <BasecampWorld mode="build" cameraMode="play" pannable={false} interactive={false} stageOverride={stage} insets={insets} debug={flags} />
             <div className="lab__chrome lab__chrome--top" style={{ height: insets.top }} />
             <div className="lab__chrome lab__chrome--bottom" style={{ height: insets.bottom }} />
           </div>

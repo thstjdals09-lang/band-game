@@ -56,6 +56,7 @@ export function BasecampWorld({
   const navigate = useNavigate();
   const devFlags = useDevStore((s) => s.world);
   const testSprite = useDevStore((s) => s.testSprite);
+  const devPlayZoom = useDevStore((s) => s.playZoom);
   const diagnostics = useDevStore((s) => s.diagnostics);
   const { ref, size } = useElementSize<HTMLDivElement>();
 
@@ -76,10 +77,10 @@ export function BasecampWorld({
     stageOverride,
     testSprite,
     cameraMode,
-    zoom,
+    zoom: zoom ?? devPlayZoom,
     pan,
     viewport: { width: size.width, height: size.height, insets: resolvedInsets },
-  }), [save, mode, stageOverride, testSprite, cameraMode, zoom, pan, size.width, size.height, resolvedInsets]);
+  }), [save, mode, stageOverride, testSprite, cameraMode, zoom, devPlayZoom, pan, size.width, size.height, resolvedInsets]);
 
   cameraRef.current = scene.camera;
 

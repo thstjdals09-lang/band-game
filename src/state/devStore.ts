@@ -4,6 +4,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { DEFAULT_TEST_SPRITE, type TestSpriteParams } from '@/world/assets/testSprite';
+// Imported from the leaf module (no React) to keep devStore free of circular imports.
+import { DEFAULT_CAMERA_CONFIG } from '@/world/iso/camera';
 
 export interface WorldDebugToggles {
   grid: boolean;
@@ -37,6 +39,18 @@ interface DevStore {
   testSprite: TestSpriteParams;
   setTestSprite: (patch: Partial<TestSpriteParams>) => void;
   resetTestSprite: () => void;
+  /**
+   * Play-camera zoom override. Saved on this device and applied to the real world, not only to
+   * the lab preview, so a tuned value can be judged in normal play.
+   */
+  playZoom: number;
+  setPlayZoom: (v: number) => void;
+  resetPlayZoom: () => void;
+  /** Where the lab was left (stage / viewport preset), so it reopens the same way. */
+  lab: { stage: number; viewport: string };
+  setLab: (patch: Partial<{ stage: number; viewport: string }>) => void;
+  /** Restore every world tuning value to its shipped default. */
+  resetWorldTuning: () => void;
 }
 
 export const useDevStore = create<DevStore>()(
@@ -54,6 +68,16 @@ export const useDevStore = create<DevStore>()(
       testSprite: { ...DEFAULT_TEST_SPRITE },
       setTestSprite: (patch) => set({ testSprite: { ...get().testSprite, ...patch } }),
       resetTestSprite: () => set({ testSprite: { ...DEFAULT_TEST_SPRITE } }),
+      playZoom: DEFAULT_CAMERA_CONFIG.defaultZoom,
+      setPlayZoom: (v) => set({ playZoom: v }),
+      resetPlayZoom: () => set({ playZoom: DEFAULT_CAMERA_CONFIG.defaultZoom }),
+      lab: { stage: 1, viewport: '390 × 844' },
+      setLab: (patch) => set({ lab: { ...get().lab, ...patch } }),
+      resetWorldTuning: () => set({
+        testSprite: { ...DEFAULT_TEST_SPRITE },
+        playZoom: DEFAULT_CAMERA_CONFIG.defaultZoom,
+        world: { ...DEFAULT_WORLD_TOGGLES },
+      }),
     }),
     { name: 'band-game.dev', storage: createJSONStorage(() => localStorage) },
   ),
@@ -62,3 +86,4 @@ export const useDevStore = create<DevStore>()(
 export const useDevDiagnostics = () => useDevStore((s) => s.diagnostics);
 export const useWorldDebugFlags = () => useDevStore((s) => s.world);
 export const useTestSprite = () => useDevStore((s) => s.testSprite);
+export const usePlayZoom = () => useDevStore((s) => s.playZoom);
