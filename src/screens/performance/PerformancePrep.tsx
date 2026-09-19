@@ -3,6 +3,7 @@
 import { CHARACTERS, VENUES } from '@/data/master';
 import { useSave } from '@/state/store';
 import { conditionWord, debutSongRequirement, lineupView, songList } from '@/state/selectors';
+import { preparedness } from '@/state/sim/performance';
 import { performanceActions } from '@/state/actions';
 import { useGameNav } from '@/app/navigation';
 import { Panel } from '@/components/Panel';
@@ -25,14 +26,16 @@ export function PerformancePrepScreen() {
   const songs = songList(save);
   const req = debutSongRequirement(save);
   const lineup = lineupView(save).filter((s) => s.kind !== 'EMPTY');
-  const ready = req.met && !!pending.openingSongId && lineup.length > 0;
+  const canStart = req.met && !!pending.openingSongId && lineup.length > 0;
+  const ready = preparedness(save);
+  const openingSong = songs.find((s) => s.id === pending.openingSongId);
 
   return (
     <Panel
       title="데뷔 쇼케이스"
       subtitle={`${venue?.name ?? pending.venueId} · 수용 ${venue?.capacity ?? '-'}명`}
       nav="back"
-      footer={<Btn variant="primary" size="lg" full disabled={!ready} onClick={() => go('/performance/live')}>공연 시작</Btn>}
+      footer={<Btn variant="primary" size="lg" full disabled={!canStart} onClick={() => go('/performance/live')}>공연 시작</Btn>}
     >
       <Section title={`오프닝 곡 · 보유 곡 ${req.have}/${req.required}`}>
         {!req.met && <Notice tone="risk">데뷔 쇼케이스에는 최소 {req.required}곡이 필요하다. 합주나 녹음으로 한 주를 더 보내자.</Notice>}
@@ -66,9 +69,11 @@ export function PerformancePrepScreen() {
 
       <Section title="준비 상태">
         <dl className="kv">
-          <dt>준비도</dt><dd>보통</dd>
+          <dt>준비도</dt><dd>{conditionWord(ready)}</dd>
+          <dt>오프닝 라이브 적합도</dt><dd>{openingSong ? openingSong.musicProfile.liveFit : '-'}</dd>
           <dt>장비</dt><dd>기본 장비</dd>
         </dl>
+        <Notice>준비도는 멤버의 체력·사기·스트레스에서 나온다. 공연 전 휴식과 연습이 결과를 바꾼다.</Notice>
       </Section>
 
       <div className="rowcard__meta mt16">

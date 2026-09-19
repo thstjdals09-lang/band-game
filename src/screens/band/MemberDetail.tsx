@@ -2,7 +2,9 @@
 // Core 5 stats + condition + discovered traits. Music DNA numbers and hidden sim values are never exposed.
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CHARACTERS, CLAUSE_LABELS, traitName, type CharacterId } from '@/data/master';
+import { CHARACTERS, CLAUSE_LABELS, PROTOTYPE_BALANCE, traitName, type CharacterId } from '@/data/master';
+
+const STAT_LABEL = { skill: '실력', creative: '창의성', stage: '무대력', star: '스타성', pro: '프로의식' } as const;
 import { useSave } from '@/state/store';
 import { conditionWord, currentVisibleStats } from '@/state/selectors';
 import { won } from '@/app/format';
@@ -24,6 +26,8 @@ export function MemberDetailScreen() {
   const stats = currentVisibleStats(save, cid);
   const contract = save.contracts[cid];
   const discovered = Object.entries(st?.traitStates ?? {}).filter(([, v]) => v === 'DISCOVERED').map(([k]) => k);
+  const perStage = PROTOTYPE_BALANCE.growth.experiencePerStage;
+  const nextStageIn = st ? `${perStage - (st.growth.experience % perStage)} 경험` : '-';
   const hasHidden = Object.values(st?.traitStates ?? {}).some((v) => v === 'HIDDEN');
 
   return (
@@ -41,12 +45,26 @@ export function MemberDetailScreen() {
           <>
             <Section title="핵심 5 스탯">
               <div className="col" style={{ gap: 9 }}>
-                <StatBar label="실력" value={stats.skill} />
-                <StatBar label="창의성" value={stats.creative} />
-                <StatBar label="무대력" value={stats.stage} />
-                <StatBar label="스타성" value={stats.star} />
-                <StatBar label="프로의식" value={stats.pro} />
+                {(['skill', 'creative', 'stage', 'star', 'pro'] as const).map((k) => (
+                  <div key={k}>
+                    <StatBar label={STAT_LABEL[k]} value={stats[k]} />
+                    {stats[k] > def.visibleStats[k] && (
+                      <div className="label accent" style={{ textAlign: 'right' }}>
+                        영입 시 {def.visibleStats[k]} · +{stats[k] - def.visibleStats[k]}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
+            </Section>
+
+            <Section title="성장">
+              <dl className="kv">
+                <dt>단계</dt><dd>{st?.growth.developmentStage ?? 0}단계</dd>
+                <dt>다음 단계까지</dt><dd>{nextStageIn}</dd>
+                <dt>쌓은 경험</dt><dd>{st?.growth.experience ?? 0}</dd>
+                <dt>개인 인기</dt><dd>{st?.personalPopularity ?? 0}</dd>
+              </dl>
             </Section>
             {st && (
               <Section title="현재 컨디션">

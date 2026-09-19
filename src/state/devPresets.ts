@@ -8,6 +8,7 @@ import { useGameStore } from './store';
 import { auditionActions, bandActions, facilityActions, opportunityActions, performanceActions, scheduleActions } from './actions';
 import { FACILITIES, PROTOTYPE_BALANCE, VENUES, type CharacterId } from '@/data/master';
 import { lineupView, songList } from './selectors';
+import { simulateWeek } from './sim/weekEngine';
 
 export type PresetId =
   | 'NEW_GAME' | 'TWO_MEMBERS' | 'TWO_MEMBERS_NAMED' | 'SESSION_READY'
@@ -46,15 +47,30 @@ function signTwoMembers() {
   auditionActions.signContract(AUD, CHAERIN, { salary: 180000, durationWeeks: 104, rolePromise: 'CORE_MEMBER' });
 }
 
-/** Run one creative week: plan practice, then commit with the next scripted demo title. */
+/** Run one creative week through the real simulation engine. */
 function creativeWeek() {
   scheduleActions.setMainAction(0, 'PRACTICE');
-  const n = songList(save()).length + 1;
-  scheduleActions.commitWeek({ newSongTitle: `Untitled Demo ${String(n).padStart(2, '0')}` });
+  scheduleActions.commitWeek(simulateWeek(save()));
 }
 
 function reachTwoSongs() {
   while (songList(save()).length < PROTOTYPE_BALANCE.songs.minSongsForDebut) creativeWeek();
+}
+
+/**
+ * PHASE 2A: offers are no longer scripted on the second song — they arrive from the week engine
+ * once the band has enough songs, and only after the offer delay. Keep playing until one is real.
+ */
+function reachLiveOffer() {
+  reachTwoSongs();
+  for (let guard = 0; guard < 12; guard += 1) {
+    const s = save();
+    const ready = Object.values(s.opportunities).some(
+      (o) => o.type === 'LIVE' && o.createdWeek <= s.world.week && (o.status === 'NEW' || o.status === 'SEEN' || o.status === 'LATER'),
+    );
+    if (ready) return;
+    creativeWeek();
+  }
 }
 
 function acceptLiveOffer(): string | null {
@@ -116,20 +132,20 @@ export function applyPreset(id: PresetId): string {
     case 'OPPORTUNITY_READY':
       signTwoMembers();
       bandActions.setBandName('QA BAND');
-      reachTwoSongs();
+      reachLiveOffer();
       break;
 
     case 'PERFORMANCE_PREP_READY':
       signTwoMembers();
       bandActions.setBandName('QA BAND');
-      reachTwoSongs();
+      reachLiveOffer();
       acceptLiveOffer();
       break;
 
     case 'FACILITY_BUILD_READY':
       signTwoMembers();
       bandActions.setBandName('QA BAND');
-      reachTwoSongs();
+      reachLiveOffer();
       acceptLiveOffer();
       playDebutShow();
       break;
@@ -137,7 +153,7 @@ export function applyPreset(id: PresetId): string {
     case 'POST_FACILITY_BUILD':
       signTwoMembers();
       bandActions.setBandName('QA BAND');
-      reachTwoSongs();
+      reachLiveOffer();
       acceptLiveOffer();
       playDebutShow();
       facilityActions.build('RECORDING_ROOM', FACILITIES.RECORDING_ROOM.buildCost);

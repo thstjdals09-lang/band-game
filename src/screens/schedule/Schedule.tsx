@@ -3,7 +3,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { ACTIVITIES, CHARACTERS, VENUES, type IndividualActionId, type MainActionId } from '@/data/master';
 import { useSave } from '@/state/store';
-import { projectedExpense, scheduleWarnings } from '@/state/selectors';
+import { activityUnlocked, projectedExpense, scheduleWarnings } from '@/state/selectors';
 import { scheduleActions } from '@/state/actions';
 import { useGameNav } from '@/app/navigation';
 import { won, yearWeekLong } from '@/app/format';
@@ -103,7 +103,8 @@ export function ScheduleScreen() {
           <div className="col">
             {MAIN.map((a) => {
               const live = a.id === 'LIVE_SHOW';
-              const disabled = live && !save.pendingPerformance;
+              const locked = !activityUnlocked(save, a.id);
+              const disabled = (live && !save.pendingPerformance) || locked;
               return (
                 <button
                   key={a.id}
@@ -113,7 +114,7 @@ export function ScheduleScreen() {
                 >
                   <span className="grow">
                     <div className="rowcard__title">{a.name}</div>
-                    <div className="rowcard__meta">{disabled ? '예정된 공연이 없다' : a.summary}</div>
+                    <div className="rowcard__meta">{locked ? '녹음실을 지어야 한다' : disabled ? '예정된 공연이 없다' : a.summary}</div>
                     <div className="tags mt8">{a.affects.map((x) => <Tag key={x} tone="mute">{x}</Tag>)}</div>
                   </span>
                   <span className="actionslot__cost">{a.cost ? won(a.cost) : '무료'}</span>

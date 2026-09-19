@@ -1,10 +1,12 @@
 // Derived values (Character Master §14: current derived values are recomputed, never stored).
 // UI must not compute formulas itself - it reads selectors (Implementation Guardrails: "UI에서 계산식을 직접 작성하지 않는다").
 import {
-  ACTIVITIES, CHARACTERS, CONTRACT_PROFILES, FACILITIES, PROTOTYPE_BALANCE, SESSION_TEMPLATES, SLOT_DEFINITIONS, VENUES,
+  ACTIVITIES, CHARACTERS, CONTRACT_PROFILES, FACILITIES, PROTOTYPE_BALANCE, RELEASE_FORMATS,
+  SESSION_TEMPLATES, SLOT_DEFINITIONS, VENUES,
   type CharacterId, type SlotId, type VisibleStats,
 } from '@/data/master';
 import type { LineupAssignment, SaveData } from './save/schema';
+import { unlockedRevenueStreams } from './sim/career';
 
 export type Grade = 'GREAT' | 'GOOD' | 'FAIR' | 'POOR' | '—';
 export type RiskGrade = 'LOW' | 'MEDIUM' | 'HIGH' | '—';
@@ -78,15 +80,19 @@ export function firstEmptyCompatibleSlotIndex(save: SaveData, id: CharacterId): 
 }
 
 // ---- Chemistry diagnostics (IA §10) -------------------------------------------------------
-// TODO(PHASE2 engine): real calculation = Music DNA mean + variance + extremes + role influence (Character Master §05)
-// + personality + relationships. Prototype returns placeholder grades so the screen structure can be validated.
+// The six axes need the relationship engine (Character Master §06), which is PHASE 2B.
+// Until then they report honestly as unknown rather than printing invented grades.
 export interface ChemistryDiagnostics {
   musicalFit: Grade; creativeBalance: Grade; liveStability: Grade; starPower: Grade; teamwork: Grade; conflictRisk: RiskGrade;
+  /** Why the axes are blank; shown to the player instead of a fake value. */
+  reason: string;
 }
 export function chemistryDiagnostics(save: SaveData): ChemistryDiagnostics {
   const n = lineupView(save).filter((s) => s.kind !== 'EMPTY').length;
-  if (n === 0) return { musicalFit: '—', creativeBalance: '—', liveStability: '—', starPower: '—', teamwork: '—', conflictRisk: '—' };
-  return { musicalFit: 'GOOD', creativeBalance: 'GREAT', liveStability: 'FAIR', starPower: 'GREAT', teamwork: 'GOOD', conflictRisk: 'MEDIUM' };
+  return {
+    musicalFit: '—', creativeBalance: '—', liveStability: '—', starPower: '—', teamwork: '—', conflictRisk: '—',
+    reason: n === 0 ? '라인업이 비어 있다' : '관계가 쌓여야 드러난다',
+  };
 }
 
 // ---- Economy -----------------------------------------------------------------------------
@@ -121,14 +127,11 @@ export function scheduleWarnings(save: SaveData): ScheduleWarning[] {
 }
 
 // ---- Facilities / Basecamp ---------------------------------------------------------------
-export type FacilityAvailability = 'BUILT' | 'AVAILABLE' | 'LOCKED';
-export function facilityAvailability(save: SaveData, facilityId: string): FacilityAvailability {
-  const st = save.facilities[facilityId];
-  if (st?.built) return 'BUILT';
-  // TODO(PHASE2 engine): unlock conditions are data (careerTiers/milestones master). Prototype rule:
-  if (facilityId === 'RECORDING_ROOM') return save.performanceHistory.length >= 1 ? 'AVAILABLE' : 'LOCKED';
-  return 'LOCKED';
-}
+// Unlock gates now live in the facility master data (FacilityDefinition.unlock) and are evaluated
+// by sim/career.ts against milestones and career tier.
+export type { FacilityAvailability } from './sim/career';
+export { facilityAvailabilityFor as facilityAvailability, activityUnlocked } from './sim/career';
+export { achievedMilestones, careerProgress, careerTierFor, unlockedRevenueStreams } from './sim/career';
 
 export function basecampStage(save: SaveData): number {
   return Object.values(save.facilities).reduce((stage, f) => {
@@ -161,6 +164,24 @@ export function pendingOpportunities(save: SaveData) {
 export function pendingVenueName(save: SaveData): string | null {
   const p = save.pendingPerformance;
   return p ? VENUES[p.venueId]?.name ?? p.venueId : null;
+}
+
+// ---- Releases (GDD §06 발매 전략 / §05 수익 해금 단계) ------------------------------------
+export interface ReleaseReadiness {
+  /** Music revenue opens only after the first show (GDD: 공연 -> 음원/앨범). */
+  canRelease: boolean;
+  epSongs: ReturnType<typeof songList>;
+  canReleaseEp: boolean;
+}
+
+export function releaseReadiness(save: SaveData): ReleaseReadiness {
+  const canRelease = unlockedRevenueStreams(save).includes('MUSIC');
+  const epSongs = songList(save).filter((s) => s.status === 'SAVED_FOR_EP');
+  return {
+    canRelease,
+    epSongs,
+    canReleaseEp: canRelease && epSongs.length >= RELEASE_FORMATS.EP.songsRequired,
+  };
 }
 
 export function conditionWord(v: number): string {

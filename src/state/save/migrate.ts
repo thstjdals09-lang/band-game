@@ -9,7 +9,7 @@
 import { CORE_LINEUP_SLOTS, type SlotId } from '@/data/master';
 import { SAVE_SCHEMA_VERSION, type LineupSlotState, type SaveData } from './schema';
 
-const EMPTY_COUNTERS = { song: 0, session: 0, audition: 0, opportunity: 0, performance: 0 };
+const EMPTY_COUNTERS = { song: 0, session: 0, audition: 0, opportunity: 0, performance: 0, release: 0 };
 
 function normaliseLineup(raw: unknown): LineupSlotState[] {
   if (Array.isArray(raw)) {

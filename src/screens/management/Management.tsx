@@ -1,6 +1,7 @@
 // MANAGEMENT hub (IA §21): 자금 / 시설 / 계약이 실제 기능, 스태프 / 장비는 준비 중.
 import { useSave } from '@/state/store';
-import { basecampStage, weeklySalaryBurden } from '@/state/selectors';
+import { basecampStage, careerProgress, weeklySalaryBurden } from '@/state/selectors';
+import { CAREER_TIERS, MILESTONES } from '@/data/master';
 import { useGameNav } from '@/app/navigation';
 import { won } from '@/app/format';
 import { Panel } from '@/components/Panel';
@@ -10,6 +11,7 @@ export function ManagementScreen() {
   const { go } = useGameNav();
   const save = useSave();
   const contracts = Object.keys(save.contracts).length;
+  const career = careerProgress(save);
 
   const MAIN = [
     { label: '자금', to: '/management/finance', meta: won(save.economy.cash) },
@@ -23,6 +25,24 @@ export function ManagementScreen() {
 
   return (
     <Panel title="경영" nav="close">
+      <Section title="커리어">
+        <div className="rowcard rowcard--stack">
+          <div className="row row--between">
+            <span className="rowcard__title lead">{CAREER_TIERS[career.tier].label}</span>
+            <Tag tone="ok">{career.reached.size}개 달성</Tag>
+          </div>
+          <div className="rowcard__meta mt8">{CAREER_TIERS[career.tier].feel}</div>
+          {career.nextTier && (
+            <div className="rowcard__meta mt12">
+              다음 단계 {CAREER_TIERS[career.nextTier].label}까지 ·{' '}
+              {career.missingForNext.length === 0
+                ? '조건 충족'
+                : career.missingForNext.map((m) => MILESTONES[m].label).join(', ')}
+            </div>
+          )}
+        </div>
+      </Section>
+
       {MAIN.map((it) => (
         <button key={it.to} className="rowcard rowcard--tap" onClick={() => go(it.to)}>
           <span className="grow">

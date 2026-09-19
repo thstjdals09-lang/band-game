@@ -4,12 +4,23 @@
 import { useSearchParams } from 'react-router-dom';
 import { CHARACTERS, SESSION_TEMPLATES } from '@/data/master';
 import { useSave } from '@/state/store';
-import { chemistryDiagnostics, lineupCapacity, lineupView, membersAvailableForSlot, slotIndicesForCharacter, type LineupSlotView } from '@/state/selectors';
+import { lineupCapacity, lineupView, membersAvailableForSlot, slotIndicesForCharacter, type LineupSlotView } from '@/state/selectors';
+import { bandDna, type BandDna } from '@/state/sim/musicDna';
 import { bandActions } from '@/state/actions';
 import { useGameNav } from '@/app/navigation';
 import { won } from '@/app/format';
 import { CharacterVisual } from '@/components/CharacterVisual';
-import { BottomSheet, Btn, GradeLabel, Notice, Section, Tag } from '@/components/ui';
+import { BottomSheet, Btn, Notice, Section, Tag } from '@/components/ui';
+
+/** Plain words for the band's current Music DNA (Character Master §05 axis meanings). */
+function soundWords(dna: BandDna): string[] {
+  const m = dna.mean;
+  return [
+    m.accessibility >= 0 ? '대중적' : '실험적',
+    m.energy >= 0 ? '공격적' : '부드러움',
+    m.tone >= 0 ? '밝음' : '어두움',
+  ];
+}
 import { BandFrame } from './BandFrame';
 
 export function LineupScreen() {
@@ -19,7 +30,7 @@ export function LineupScreen() {
   const slots = lineupView(save);
   const filled = slots.filter((s) => s.kind !== 'EMPTY').length;
   const empty = slots.length - filled;
-  const diag = chemistryDiagnostics(save);
+  const dna = bandDna(save);
 
   const openSlot = (index: number) => setParams({ slot: String(index) }); // history push -> browser Back closes the sheet
   const slotParam = params.get('slot');
@@ -53,11 +64,15 @@ export function LineupScreen() {
 
       {empty > 0 && <Notice tone="warn">빈 자리는 정식 멤버를 배치하거나 세션을 고용해 메울 수 있다.</Notice>}
 
-      <Section title="조합 진단" aside={<button className="label accent" onClick={() => go('/band/chemistry')}>자세히 ›</button>}>
-        <dl className="kv">
-          <dt>음악적 궁합</dt><dd><GradeLabel value={diag.musicalFit} /></dd>
-          <dt>갈등 위험</dt><dd><GradeLabel value={diag.conflictRisk} /></dd>
-        </dl>
+      <Section title="사운드" aside={<button className="label accent" onClick={() => go('/band/chemistry')}>자세히 ›</button>}>
+        {dna ? (
+          <div className="rowcard">
+            <span className="grow">
+              <div className="rowcard__title">{dna.cohesion > 0.6 ? '한 방향으로 모인다' : '취향이 제각각이다'}</div>
+              <div className="rowcard__meta">{soundWords(dna).join(' · ')}</div>
+            </span>
+          </div>
+        ) : <Notice>멤버를 배치하면 밴드의 사운드가 생긴다.</Notice>}
       </Section>
 
       <BottomSheet open={!!current} title={current ? current.label : ''} onClose={back}>

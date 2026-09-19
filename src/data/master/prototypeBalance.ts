@@ -51,4 +51,78 @@ export const PROTOTYPE_BALANCE = {
   facility: {
     constructionRevealMs: 1400, // Prototype Variable (연출 길이)
   },
+
+  // ---------------------------------------------------------------------------------------
+  // PHASE 2A growth loop. The documents define WHICH activities exist and WHAT they affect
+  // (GDD §05 / IA §15) but give no magnitudes, so every number below is TODO(balance).
+  // ---------------------------------------------------------------------------------------
+  /** Per band-activity effect on every active member. */
+  activityEffects: {
+    PRACTICE:   { energy: -10, stress: 6,  morale: 3,  experience: 90 },  // TODO(balance)
+    PROMOTION:  { energy: -7,  stress: 4,  morale: 1,  experience: 25 },  // TODO(balance)
+    RECORDING:  { energy: -13, stress: 9,  morale: 2,  experience: 60 },  // TODO(balance)
+    REST:       { energy: 22,  stress: -18, morale: 6, experience: 0 },   // TODO(balance)
+    LIVE_SHOW:  { energy: -16, stress: 8,  morale: 8,  experience: 120 }, // TODO(balance)
+  },
+  /** Per individual-activity effect on the chosen member only. */
+  individualEffects: {
+    PRIVATE_LESSON: { energy: -8, stress: 4,  morale: 1, experience: 150 }, // TODO(balance)
+    REST:           { energy: 26, stress: -22, morale: 5, experience: 0 },  // TODO(balance)
+    INTERVIEW:      { energy: -5, stress: 3,  morale: 2, experience: 20, personalPopularity: 6 }, // TODO(balance)
+  },
+  growth: {
+    /** Experience needed for one development stage. TODO(balance) */
+    experiencePerStage: 600,
+    maxDevelopmentStage: 10,
+    /** Stat points granted per stage before curve and headroom scaling. TODO(balance) */
+    statPointsPerStage: 6,
+    /** Tired members learn less. TODO(balance) */
+    lowEnergyThreshold: 35,
+    lowEnergyExperienceFactor: 0.5,
+    highStressThreshold: 70,
+    highStressExperienceFactor: 0.7,
+    /** A member already at their potential stops gaining. */
+    potentialSoftCapMargin: 2,
+  },
+  promotion: {
+    /** Fans gained per promotion week, scaled by star power. TODO(balance) */
+    baseFans: 12,
+    starPowerFactor: 0.35,
+    fanLoyaltyGain: 1,
+  },
+  release: {
+    /** One-off release payout per popularity point. TODO(balance) */
+    revenuePerPopularity: 9000,
+    epMultiplier: 2.4,
+    fansPerPopularity: 1.1,
+    reputationPerArtistry: 0.08,
+    musicalReputationPerArtistry: 0.12,
+    fanLoyaltyPerFanFit: 0.05,
+    /** Weekly streaming income decays after release. TODO(balance) */
+    weeklyIncomePerPopularity: 420,
+    weeklyIncomeDecay: 0.82,
+    weeklyIncomeWeeks: 12,
+  },
+  career: {
+    /** GDD §07 Local Act 대표 체감 "지역 팬덤" threshold. TODO(balance) */
+    localFanbaseFans: 300,
+  },
+  liveOffer: {
+    /** Weeks to wait after a show before the next offer appears. TODO(balance) */
+    cooldownWeeks: 1,
+    /** Fans needed before the larger venue starts calling. TODO(balance) */
+    moonlightClubFans: 260,
+  },
+  performanceScore: {
+    /** Weights over the inputs IA §19 lists. They sum to 1 before the moment-choice bonus. */
+    skill: 0.24,
+    stagePresence: 0.24,
+    songLiveFit: 0.22,
+    condition: 0.16,
+    liveStability: 0.14,
+    /** Crowd reaction from the moment choices, added on top. TODO(balance) */
+    choiceBonusMax: 12,
+    /** Random is a helper only (IA §19). TODO(balance) */
+    randomSpread: 6,
+  },
 } as const;

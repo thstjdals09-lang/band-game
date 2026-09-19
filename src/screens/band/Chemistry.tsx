@@ -2,12 +2,23 @@
 import { CHARACTERS, SYNERGIES, type CharacterId } from '@/data/master';
 import { useSave } from '@/state/store';
 import { chemistryDiagnostics } from '@/state/selectors';
+import { bandDna } from '@/state/sim/musicDna';
+import type { MusicDNA } from '@/data/master';
 import { EmptyState, GradeLabel, Notice, Section, Tag } from '@/components/ui';
+
+const DNA_LABELS: [keyof MusicDNA, string, string][] = [
+  ['accessibility', '실험적', '대중적'],
+  ['texture', '날것', '정제됨'],
+  ['energy', '부드러움', '공격적'],
+  ['focus', '분위기', '그루브'],
+  ['tone', '어두움', '밝음'],
+];
 import { BandFrame } from './BandFrame';
 
 export function ChemistryScreen() {
   const save = useSave();
   const d = chemistryDiagnostics(save);
+  const dna = bandDna(save);
   const members = save.band.activeMembers;
   const pairs: [CharacterId, CharacterId][] = [];
   members.forEach((a, i) => members.slice(i + 1).forEach((b) => pairs.push([a, b])));
@@ -24,6 +35,31 @@ export function ChemistryScreen() {
           <dt>팀워크</dt><dd><GradeLabel value={d.teamwork} /></dd>
           <dt>갈등 위험</dt><dd><GradeLabel value={d.conflictRisk} /></dd>
         </dl>
+        <Notice>여섯 축은 {d.reason}. 지금은 추측할 근거가 없다.</Notice>
+      </Section>
+
+      <Section title="지금 확인되는 사운드">
+        {!dna && <EmptyState text="라인업에 멤버가 있어야 밴드의 사운드가 생긴다." />}
+        {dna && (
+          <div className="rowcard rowcard--stack">
+            <div className="row row--between">
+              <span className="rowcard__title">소리의 결</span>
+              <Tag tone={dna.cohesion > 0.6 ? 'ok' : 'amber'}>{dna.cohesion > 0.6 ? '한 방향' : '제각각'}</Tag>
+            </div>
+            <div className="col mt12" style={{ gap: 8 }}>
+              {DNA_LABELS.map(([axis, low, high]) => (
+                <div key={axis} className="statbar">
+                  <span className="statbar__label">{low}</span>
+                  <div className="statbar__track">
+                    <div className="statbar__fill" style={{ width: `${(dna.mean[axis] + 100) / 2}%` }} />
+                  </div>
+                  <span className="statbar__value">{high}</span>
+                </div>
+              ))}
+            </div>
+            <div className="rowcard__meta mt12">역할 배치를 바꾸면 이 결도 달라진다.</div>
+          </div>
+        )}
       </Section>
 
       <Section title="멤버 사이">

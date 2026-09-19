@@ -165,14 +165,26 @@ export interface EventDefinition {
   scripted: boolean;  // true = full definition available; false = hook/id only
 }
 
+/** Career tier ids (GDD §07). Mirrors the SaveData CareerTier union. */
+export type CareerTierId = 'UNKNOWN' | 'LOCAL_ACT' | 'RISING_ACT' | 'MAJOR' | 'STAR' | 'WORLD_ICON';
+
+/** Data-driven facility unlock (replaces the hard-coded prototype rule). */
+export type FacilityUnlock =
+  | { kind: 'ALWAYS' }
+  | { kind: 'MILESTONE'; milestoneId: string }
+  | { kind: 'CAREER_TIER'; tierId: CareerTierId };
+
 export interface FacilityDefinition {
   id: string;
   name: string;
   description: string;
-  unlockCondition: string; // human readable for shell
+  unlockCondition: string; // human readable for the UI
+  unlock: FacilityUnlock;  // machine readable gate
   buildCost: number;       // TODO(balance)
   effectSummary: string;
   basecampStageAfterBuild?: number; // visual stage change (IA §22)
+  /** Weekly activity this facility enables (IA §22 / GDD §05). */
+  enablesActivity?: MainActionId;
 }
 
 export interface VenueDefinition {

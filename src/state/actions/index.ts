@@ -1,12 +1,17 @@
 // Domain actions - the only place that mutates SaveData. UI calls these; simulation depth is PHASE 2+.
 // All numeric tuning lives in PROTOTYPE_BALANCE (TODO(balance)).
 import {
-  CHARACTERS, CONTRACT_PROFILES, FACILITIES, PROTOTYPE_BALANCE, SESSION_TEMPLATES, VENUES,
-  type CharacterId, type IndividualActionId, type MainActionId, type SlotId,
+  CAREER_TIERS, CHARACTERS, CONTRACT_PROFILES, FACILITIES, MILESTONES, PROTOTYPE_BALANCE,
+  RELEASE_FORMATS, SESSION_TEMPLATES,
+  type CharacterId, type IndividualActionId, type MainActionId, type MilestoneId,
+  type ReleaseKind, type SlotId,
 } from '@/data/master';
 import { useGameStore } from '../store';
-import { firstEmptyCompatibleSlotIndex, projectedExpense, songCount } from '../selectors';
-import type { LineupAssignment, PerformanceSnapshot, RevealKey, SaveData } from '../save/schema';
+import { firstEmptyCompatibleSlotIndex } from '../selectors';
+import { achievedMilestones, careerTierFor } from '../sim/career';
+import { clampCondition, stageForExperience } from '../sim/growth';
+import type { WeekOutcome } from '../sim/weekEngine';
+import type { CareerTier, LineupAssignment, PerformanceSnapshot, RevealKey, SaveData } from '../save/schema';
 
 const B = PROTOTYPE_BALANCE;
 const update = (fn: (d: SaveData) => void) => useGameStore.getState().update(fn);
@@ -127,70 +132,172 @@ export const scheduleActions = {
     });
   },
   /**
-   * Commit the week (called at the end of the Week Resolution flow).
-   * TODO(PHASE2 engine): growth / relationships / condition / event selection / RNG streams.
-   * Prototype script: pay expenses, advance week, create a demo per creative week until the Debut
-   * Showcase song requirement (minSongsForDebut) is met, then spawn the first live opportunity.
+   * Apply ONE already-simulated week (see sim/weekEngine.ts).
+   *
+   * The outcome is computed once by the Week Resolution screen and handed here verbatim, so what
+   * the player watched is exactly what is applied. Guards make the call idempotent: a stale
+   * outcome (wrong week / wrong rng position) or an empty plan is ignored, so reloading or
+   * re-entering the screen can never pay a reward twice.
    */
-  commitWeek(input: { newSongTitle?: string }) {
+  commitWeek(outcome: WeekOutcome) {
     update((d) => {
-      const week = d.world.week;
-      const expense = projectedExpense(d);
-      d.economy.cash -= expense;
-      d.economy.ledger.push({ week, label: `${week}주차 운영비`, amount: -expense });
+      if (d.world.week !== outcome.week || d.world.year !== outcome.year) return;
+      if (d.rng.streams.world !== outcome.rngPosition) return;
+      if (!d.weeklyPlan.mainActions.some(Boolean)) return;
 
-      const didCreate = d.weeklyPlan.mainActions.some((a) => a === 'PRACTICE' || a === 'RECORDING');
-      if (didCreate && input.newSongTitle) {
+      const week = d.world.week;
+
+      d.economy.cash -= outcome.expense;
+      d.economy.ledger.push({ week, label: `${week}주차 운영비`, amount: -outcome.expense });
+      if (outcome.musicIncome > 0) {
+        d.economy.cash += outcome.musicIncome;
+        d.economy.ledger.push({ week, label: '음원 수익', amount: outcome.musicIncome });
+      }
+
+      outcome.members.forEach((m) => {
+        const st = d.characterStates[m.characterId];
+        if (!st) return;
+        st.condition.energy = clampCondition(st.condition.energy + m.energy);
+        st.condition.stress = clampCondition(st.condition.stress + m.stress);
+        st.condition.morale = clampCondition(st.condition.morale + m.morale);
+        st.growth.experience += m.experience;
+        st.growth.developmentStage = stageForExperience(st.growth.experience);
+        st.personalPopularity += m.personalPopularity;
+        const base = CHARACTERS[m.characterId].visibleStats;
+        (Object.keys(m.statGains) as (keyof typeof base)[]).forEach((k) => {
+          const add = m.statGains[k];
+          if (!add) return;
+          const current = st.currentStats[k] ?? base[k];
+          st.currentStats[k] = Math.min(100, current + add);
+        });
+        if (st.growth.developmentStage >= 3 && st.careerStage === 'ROOKIE') st.careerStage = 'GROWTH';
+      });
+
+      if (outcome.newSong) {
         d.counters.song += 1;
         const id = `song_${pad(d.counters.song)}`;
-        const members = d.band.activeMembers;
-        const composer = [...members].sort((a, b) => CHARACTERS[b].hiddenStats.composing - CHARACTERS[a].hiddenStats.composing)[0];
-        const lyricist = [...members].sort((a, b) => CHARACTERS[b].hiddenStats.lyrics - CHARACTERS[a].hiddenStats.lyrics)[0];
-        const avg = (k: 'star' | 'creative' | 'stage') => Math.round(members.reduce((s, m) => s + CHARACTERS[m].visibleStats[k], 0) / Math.max(1, members.length));
-        d.songs[id] = {
-          id, title: input.newSongTitle, createdWeek: week,
-          contributors: { composer: composer ? [composer] : [], lyrics: lyricist ? [lyricist] : [] },
-          originContext: d.weeklyPlan.mainActions.includes('RECORDING') ? ['RECORDING_SESSION'] : ['BAND_PRACTICE'],
-          // TODO(PHASE2 engine): 4-axis evaluation from member ability + traits + Music DNA + relationships + events.
-          musicProfile: { popularity: avg('star'), artistry: avg('creative'), fanFit: B.songs.demoFanFit, liveFit: avg('stage') },
-          genreTags: Array.from(new Set(members.flatMap((m) => CHARACTERS[m].musicTags))).slice(0, 2),
-          status: 'UNRELEASED',
-        };
+        const { composerId, ...song } = outcome.newSong;
+        void composerId;
+        d.songs[id] = { id, ...song };
       }
 
-      // First live opportunity (IA §6 example: Basement Club 공연 제안) - only once the Debut song requirement is met.
-      const hasLiveOffer = Object.values(d.opportunities).some((o) => o.type === 'LIVE');
-      if (!hasLiveOffer && d.band.activeMembers.length >= 1 && songCount(d) >= B.songs.minSongsForDebut) {
+      if (outcome.fansDelta) d.band.metrics.fans += outcome.fansDelta;
+      if (outcome.fanLoyaltyDelta) d.band.metrics.fanLoyalty += outcome.fanLoyaltyDelta;
+
+      outcome.newOffers.forEach((offer) => {
         d.counters.opportunity += 1;
         const id = `opp_${pad(d.counters.opportunity)}`;
-        const createdWeek = week + B.opportunity.liveOfferDelayWeeks;
-        d.opportunities[id] = {
-          id, type: 'LIVE', title: 'Basement Club 공연 제안',
-          description: `${VENUES.BASEMENT_CLUB.name}에서 데뷔 무대를 제안했다.`,
-          createdWeek, expiresWeek: createdWeek + B.opportunity.liveOfferWindowWeeks, status: 'NEW', payload: { venueId: 'BASEMENT_CLUB' },
-        };
-      }
+        d.opportunities[id] = { id, ...offer };
+      });
 
-      // condition drift placeholder
-      d.band.activeMembers.forEach((id) => {
-        const c = d.characterStates[id]?.condition;
-        if (!c) return;
-        const rested = d.weeklyPlan.mainActions.includes('REST');
-        c.energy = Math.max(0, Math.min(100, c.energy + (rested ? B.week.energyRest : B.week.energyDrift)));
+      Object.values(d.opportunities).forEach((o) => {
+        if ((o.status === 'NEW' || o.status === 'SEEN' || o.status === 'LATER') && week > o.expiresWeek) {
+          o.status = 'EXPIRED';
+        }
+      });
+
+      Object.values(d.sessionHires).forEach((h) => {
+        if (week < h.endWeek) return;
+        d.band.lineup.forEach((slot) => {
+          if (slot.assignment?.kind === 'SESSION' && slot.assignment.instanceId === h.instanceId) {
+            slot.assignment = null;
+          }
+        });
+        delete d.sessionHires[h.instanceId];
+        d.careerHistory.push({ week, type: 'LINEUP_CHANGE', text: '세션 계약이 끝났다' });
       });
 
       d.world.week += 1;
       if (d.world.week > 52) { d.world.week = 1; d.world.year += 1; }
       d.weeklyPlan = { mainActions: [null, null, null], individualActions: [] };
       d.rng.streams.world += 1;
+
+      syncCareer(d);
     });
   },
 };
 
-// ---------------------------------------------------------------- Songs
+/** Re-derive milestones and career tier, logging each advancement once (Character Master §14). */
+function syncCareer(d: SaveData): MilestoneId[] {
+  const reached = achievedMilestones(d);
+  const logged = new Set(d.careerHistory.filter((h) => h.type === 'MILESTONE').map((h) => h.text));
+  const fresh: MilestoneId[] = [];
+  reached.forEach((m) => {
+    const label = MILESTONES[m].label;
+    if (logged.has(label)) return;
+    fresh.push(m);
+    d.careerHistory.push({ week: d.world.week, type: 'MILESTONE', text: label });
+  });
+
+  const tier = careerTierFor(d);
+  if (tier !== d.band.careerTier) {
+    d.band.careerTier = tier as CareerTier;
+    d.world.careerTier = tier as CareerTier;
+    d.careerHistory.push({
+      week: d.world.week, type: 'MILESTONE',
+      text: `${CAREER_TIERS[tier].label} 단계에 올랐다`,
+    });
+  }
+  return fresh;
+}
+
+// ---------------------------------------------------------------- Songs & releases
+const R = PROTOTYPE_BALANCE.release;
+
 export const songActions = {
+  /** Keep Demo / Save for EP are bookkeeping; releasing is a separate action with real effects. */
   setStatus(songId: string, status: SaveData['songs'][string]['status']) {
-    update((d) => { const s = d.songs[songId]; if (s) s.status = status; });
+    update((d) => {
+      const s = d.songs[songId];
+      if (!s || s.status === 'RELEASED_SINGLE') return;
+      s.status = status;
+    });
+  },
+
+  /**
+   * Release songs (GDD §06 발매 전략). A single and an EP write different records and apply
+   * different results; the payout is snapshotted on the release (Character Master §14).
+   */
+  release(kind: ReleaseKind, songIds: string[]) {
+    update((d) => {
+      const format = RELEASE_FORMATS[kind];
+      const songs = songIds.map((id) => d.songs[id]).filter(Boolean);
+      if (!format || songs.length < format.songsRequired) return;
+      if (songs.some((s) => s.status === 'RELEASED_SINGLE')) return;
+
+      const week = d.world.week;
+      const absWeek = week + (d.world.year - 1) * 52;
+      const popularity = songs.reduce((a, s) => a + s.musicProfile.popularity, 0);
+      const artistry = songs.reduce((a, s) => a + s.musicProfile.artistry, 0) / songs.length;
+      const fanFit = songs.reduce((a, s) => a + s.musicProfile.fanFit, 0) / songs.length;
+      const multiplier = kind === 'EP' ? R.epMultiplier : 1;
+
+      const revenue = Math.round(popularity * R.revenuePerPopularity * multiplier / 100) * 100;
+      const fansDelta = Math.round(popularity * R.fansPerPopularity * multiplier / songs.length);
+      const reputationDelta = Math.round(artistry * R.reputationPerArtistry);
+      const musicalDelta = Math.round(artistry * R.musicalReputationPerArtistry);
+      const loyaltyDelta = Math.round(fanFit * R.fanLoyaltyPerFanFit);
+
+      d.counters.release += 1;
+      const id = `rel_${pad(d.counters.release)}`;
+      d.releases[id] = {
+        id, type: kind, songIds: songs.map((s) => s.id), releasedWeek: absWeek,
+        result: { revenue, fansDelta, reputationDelta, popularity },
+      };
+      songs.forEach((s) => { s.status = 'RELEASED_SINGLE'; });
+
+      d.economy.cash += revenue;
+      d.economy.ledger.push({ week, label: `${format.label} 발매 수익`, amount: revenue });
+      d.band.metrics.fans += fansDelta;
+      d.band.metrics.reputation += reputationDelta;
+      d.band.metrics.musicalReputation += musicalDelta;
+      d.band.metrics.fanLoyalty += loyaltyDelta;
+      d.careerHistory.push({
+        week, type: 'RELEASE',
+        text: `${format.label} 발매 · ${songs.map((s) => s.title).join(', ')}`,
+      });
+      syncCareer(d);
+    });
   },
 };
 
@@ -231,8 +338,14 @@ export const performanceActions = {
       if (d.performanceHistory.length === 1) {
         d.careerHistory.push({ week: d.world.week, type: 'MILESTONE', text: `첫 공연 · ${snap.venueName} · 관객 ${snap.audience}명 · ${snap.grade}` });
       }
-      if (d.pendingPerformance) d.pendingPerformance.status = 'DONE';
+      if (d.pendingPerformance) {
+        const acceptedId = d.pendingPerformance.opportunityId;
+        const offer = d.opportunities[acceptedId];
+        if (offer) offer.status = 'ACCEPTED';
+        d.pendingPerformance.status = 'DONE';
+      }
       d.pendingPerformance = null;
+
       // Follow-up opportunity (IA §6 example: Local Radio 인터뷰 / Expires this week)
       d.counters.opportunity += 1;
       const id = `opp_${pad(d.counters.opportunity)}`;
@@ -241,6 +354,9 @@ export const performanceActions = {
         createdWeek: d.world.week, expiresWeek: d.world.week + B.opportunity.mediaOfferWindowWeeks, status: 'NEW',
       };
       d.rng.streams.performance += 1;
+
+      // A sold-out night or a new fan count can move the career forward straight away.
+      syncCareer(d);
     });
   },
 };
@@ -256,6 +372,10 @@ export const facilityActions = {
       d.economy.cash -= cost;
       d.economy.ledger.push({ week: d.world.week, label: `${FACILITIES[facilityId]?.name ?? facilityId} 건설`, amount: -cost });
       d.careerHistory.push({ week: d.world.week, type: 'FACILITY', text: `${FACILITIES[facilityId]?.name ?? facilityId} 건설 완료` });
+      // "기본 시설 확장" is one of the Local Act requirements (GDD §07).
+      syncCareer(d);
+      // "기본 시설 확장" is one of the Local Act requirements (GDD §07).
+      syncCareer(d);
     });
   },
 };

@@ -1,79 +1,57 @@
 // WEEK RESOLUTION (IA §16): NEXT WEEK replays the week as short scene cards. Dock/HUD hidden, Back locked.
-// Every step says 무엇을 했고 / 무엇이 바뀌었는지. Conditional events pause the flow for a choice.
-import { useMemo, useState } from 'react';
-import { ACTIVITIES, CHARACTERS, EVENTS, PROTOTYPE_BALANCE } from '@/data/master';
+//
+// The whole week is simulated ONCE when this screen mounts. The cards below show that outcome and
+// commitWeek applies the very same object, so what the player watched is exactly what happens and
+// nothing can be awarded twice.
+import { useState } from 'react';
+import { EVENTS, PROTOTYPE_BALANCE } from '@/data/master';
 import { useSave } from '@/state/store';
-import { projectedExpense, songCount } from '@/state/selectors';
+import { songCount } from '@/state/selectors';
 import { bandActions, scheduleActions } from '@/state/actions';
+import { simulateWeek, type WeekLogEntry, type WeekOutcome } from '@/state/sim/weekEngine';
 import { useGameNav, useLockBack } from '@/app/navigation';
 import { won, yearWeekLong } from '@/app/format';
 import { PlaceholderAsset } from '@/components/PlaceholderAsset';
 import { Btn, EmptyState } from '@/components/ui';
-import type { SaveData } from '@/state/save/schema';
 
 type Step =
-  | { kind: 'ACTION'; eyebrow: string; title: string; body: string; effects: string[]; assetKey: string }
+  | { kind: 'LOG'; entry: WeekLogEntry }
   | { kind: 'EVENT_BAND_NAME' }
-  | { kind: 'NEW_SONG'; title: string; origin: string }
   | { kind: 'COMPLETE' };
 
 // Sample band names offered by the members. Natural placeholder copy until personality-driven
-// suggestion generation exists (PHASE 2+).
+// suggestion generation exists (PHASE 2B).
 const NAME_SUGGESTIONS = ['새벽 연습실', '두 번째 합주', '아직 이름 없음'];
 
-// TODO(PHASE2 engine): event selection from EventDefinition conditions/priority; RNG stream "events".
-function buildScript(save: SaveData): { steps: Step[]; songTitle: string | null } {
-  const steps: Step[] = [];
-  save.weeklyPlan.mainActions.forEach((a, i) => {
-    if (!a) return;
-    const def = ACTIVITIES.find((x) => x.scope === 'BAND' && x.id === a)!;
-    steps.push({
-      kind: 'ACTION', eyebrow: `밴드 활동 ${i + 1}`, title: def.name, body: def.summary,
-      effects: def.affects, assetKey: `SCENE_${a}`,
-    });
-  });
-  save.weeklyPlan.individualActions.forEach((ia) => {
-    const def = ACTIVITIES.find((x) => x.scope === 'INDIVIDUAL' && x.id === ia.actionId)!;
-    steps.push({
-      kind: 'ACTION', eyebrow: '개인 일정', title: `${CHARACTERS[ia.characterId].name} · ${def.name}`, body: def.summary,
-      effects: def.affects, assetKey: `SCENE_INDIVIDUAL_${ia.actionId}`,
-    });
-  });
+const REWARD_KINDS: WeekLogEntry['kind'][] = ['SONG', 'GROWTH', 'RELEASE_INCOME', 'OFFER'];
 
+function buildSteps(save: ReturnType<typeof useSave>, outcome: WeekOutcome): Step[] {
+  const steps: Step[] = outcome.log.map((entry) => ({ kind: 'LOG', entry } as Step));
   const needsName = save.band.name === null && save.band.activeMembers.length >= 2 && EVENTS.EVT_BAND_NAME.scripted;
-  if (needsName) steps.push({ kind: 'EVENT_BAND_NAME' });
-
-  const creates = save.weeklyPlan.mainActions.some((a) => a === 'PRACTICE' || a === 'RECORDING');
-  // Scripted prototype tempo: one demo per creative week until the Debut requirement is met.
-  const songTitle = creates && songCount(save) < PROTOTYPE_BALANCE.songs.minSongsForDebut
-    ? `Untitled Demo ${String(songCount(save) + 1).padStart(2, '0')}`
-    : null;
-  if (songTitle) {
-    steps.push({
-      kind: 'NEW_SONG', title: songTitle,
-      origin: save.weeklyPlan.mainActions.includes('RECORDING') ? '녹음 중에 형태를 잡았다.' : '합주 중에 형태를 잡았다.',
-    });
+  if (needsName) {
+    // The naming moment belongs before the rewards so the week ends on the band's own result.
+    const firstReward = steps.findIndex((s) => s.kind === 'LOG' && REWARD_KINDS.includes(s.entry.kind));
+    steps.splice(firstReward < 0 ? steps.length : firstReward, 0, { kind: 'EVENT_BAND_NAME' });
   }
-
   steps.push({ kind: 'COMPLETE' });
-  return { steps, songTitle };
+  return steps;
 }
 
 export function WeekResolutionScreen() {
   const save = useSave();
   const { go } = useGameNav();
-  const [script] = useState(() => buildScript(save));
+  // Simulated once on mount: the same outcome drives both the cards and the commit.
+  const [outcome] = useState<WeekOutcome>(() => simulateWeek(save));
+  const [steps] = useState<Step[]>(() => buildSteps(save, outcome));
   const [i, setI] = useState(0);
   const [bandName, setBandName] = useState('');
   useLockBack(true);
 
-  const step = script.steps[i];
-  const total = script.steps.length;
-  const expense = useMemo(() => projectedExpense(save), [save]);
+  const step = steps[i];
   const noPlan = !save.weeklyPlan.mainActions.some(Boolean);
-  const songsAfter = songCount(save) + (script.songTitle ? 1 : 0);
+  const songsAfter = songCount(save) + (outcome.newSong ? 1 : 0);
   const needed = PROTOTYPE_BALANCE.songs.minSongsForDebut;
-  const hasLive = Object.values(save.opportunities).some((o) => o.type === 'LIVE');
+  const net = outcome.musicIncome - outcome.expense;
 
   if (noPlan) {
     return (
@@ -87,11 +65,14 @@ export function WeekResolutionScreen() {
     );
   }
 
-  const next = () => setI((x) => Math.min(total - 1, x + 1));
+  const next = () => setI((x) => Math.min(steps.length - 1, x + 1));
   const finish = () => {
-    scheduleActions.commitWeek({ newSongTitle: script.songTitle ?? undefined });
+    scheduleActions.commitWeek(outcome);
     go('/', { replace: true });
   };
+
+  const growth = outcome.members.filter((m) => m.stageAfter > m.stageBefore);
+  const tired = outcome.members.filter((m) => m.limited);
 
   return (
     <div className="imm">
@@ -102,15 +83,17 @@ export function WeekResolutionScreen() {
       </div>
 
       <div className="imm__stage">
-        {step.kind === 'ACTION' && (
-          <div className="step">
-            <div className="step__eyebrow">{step.eyebrow}</div>
-            <div className="step__title">{step.title}</div>
-            <div className="step__frame"><PlaceholderAsset assetKey={step.assetKey} variant="fill" kind="scene" /></div>
-            <p className="step__body">{step.body}</p>
+        {step.kind === 'LOG' && (
+          <div className={`step ${REWARD_KINDS.includes(step.entry.kind) ? 'step--reward' : ''}`}>
+            <div className="step__eyebrow">{eyebrowFor(step.entry.kind)}</div>
+            <div className="step__title">{step.entry.title}</div>
+            {step.entry.assetKey && (
+              <div className="step__frame"><PlaceholderAsset assetKey={step.entry.assetKey} variant="fill" kind="scene" /></div>
+            )}
+            {step.entry.body && <p className="step__body">{step.entry.body}</p>}
             <div className="step__result">
-              {step.effects.map((e) => (
-                <div key={e} className="step__resultrow"><span className="step__bullet" /><span>{e}에 영향을 남겼다</span></div>
+              {step.entry.effects.map((e) => (
+                <div key={e} className="step__resultrow"><span className="step__bullet" /><span>{e}</span></div>
               ))}
             </div>
           </div>
@@ -132,30 +115,27 @@ export function WeekResolutionScreen() {
           </div>
         )}
 
-        {step.kind === 'NEW_SONG' && (
-          <div className="step step--reward">
-            <div className="step__eyebrow">새 곡</div>
-            <div className="step__title">{step.title}</div>
-            <div className="step__frame"><PlaceholderAsset assetKey="SONG_REVEAL" variant="fill" kind="scene" /></div>
-            <p className="step__body">{step.origin}</p>
-            <div className="step__result">
-              <div className="step__resultrow"><span className="step__bullet" /><span>보유 곡 <b>{songsAfter}곡</b></span></div>
-              <div className="step__resultrow"><span className="step__bullet" /><span>곡 목록에서 평가와 발매 방향을 정할 수 있다</span></div>
-            </div>
-          </div>
-        )}
-
         {step.kind === 'COMPLETE' && (
           <div className="step">
             <div className="step__eyebrow">정리</div>
             <div className="step__title">한 주가 끝났다</div>
             <div className="step__result mt8">
-              <div className="step__resultrow"><span className="step__bullet" /><span>지출 <b>−{won(expense)}</b></span></div>
-              <div className="step__resultrow"><span className="step__bullet" /><span>팬 <b>{save.band.metrics.fans}</b> · 변화 없음</span></div>
-              <div className="step__resultrow"><span className="step__bullet" /><span>곡 <b>{songsAfter}곡</b>{script.songTitle ? ' · 새 곡 추가' : ''}</span></div>
+              <div className="step__resultrow"><span className="step__bullet" /><span>지출 <b>−{won(outcome.expense)}</b></span></div>
+              {outcome.musicIncome > 0 && (
+                <div className="step__resultrow"><span className="step__bullet" /><span>음원 수익 <b>+{won(outcome.musicIncome)}</b></span></div>
+              )}
+              <div className="step__resultrow"><span className="step__bullet" /><span>이번 주 수지 <b>{net >= 0 ? '+' : ''}{won(net)}</b></span></div>
+              <div className="step__resultrow"><span className="step__bullet" /><span>팬 <b>{save.band.metrics.fans + outcome.fansDelta}</b>{outcome.fansDelta ? ` (+${outcome.fansDelta})` : ''}</span></div>
+              <div className="step__resultrow"><span className="step__bullet" /><span>곡 <b>{songsAfter}곡</b>{outcome.newSong ? ' · 새 곡 추가' : ''}</span></div>
+              {growth.length > 0 && (
+                <div className="step__resultrow"><span className="step__bullet" /><span className="accent">성장 {growth.length}명</span></div>
+              )}
+              {tired.length > 0 && (
+                <div className="step__resultrow"><span className="step__bullet" /><span className="amber">지쳐서 덜 배운 멤버 {tired.length}명</span></div>
+              )}
               <div className="step__resultrow">
                 <span className="step__bullet" />
-                <span>{hasLive ? '공연 제안을 확인하자' : songsAfter >= needed ? '새 제안 도착 예정' : `공연 제안까지 곡 ${songsAfter}/${needed}`}</span>
+                <span>{outcome.newOffers.length > 0 ? '새 제안 도착 예정' : songsAfter >= needed ? '곧 제안이 들어올 것 같다' : `공연 제안까지 곡 ${songsAfter}/${needed}`}</span>
               </div>
             </div>
             <p className="step__body mt12">연습실로 돌아가면 달라진 것이 보일 것이다.</p>
@@ -165,7 +145,7 @@ export function WeekResolutionScreen() {
 
       <div className="imm__bottom">
         <div className="progress">
-          {script.steps.map((_, k) => <span key={k} className={`progress__dot ${k < i ? 'progress__dot--done' : k === i ? 'progress__dot--now' : ''}`} />)}
+          {steps.map((_, k) => <span key={k} className={`progress__dot ${k < i ? 'progress__dot--done' : k === i ? 'progress__dot--now' : ''}`} />)}
         </div>
         {step.kind === 'EVENT_BAND_NAME'
           ? <Btn variant="primary" size="lg" full disabled={!bandName.trim()} onClick={() => { bandActions.setBandName(bandName); next(); }}>이 이름으로 간다</Btn>
@@ -175,4 +155,16 @@ export function WeekResolutionScreen() {
       </div>
     </div>
   );
+}
+
+function eyebrowFor(kind: WeekLogEntry['kind']): string {
+  switch (kind) {
+    case 'ACTIVITY': return '밴드 활동';
+    case 'INDIVIDUAL': return '개인 일정';
+    case 'GROWTH': return '성장';
+    case 'SONG': return '새 곡';
+    case 'RELEASE_INCOME': return '음원';
+    case 'OFFER': return '새 제안';
+    default: return '이번 주';
+  }
 }

@@ -1,6 +1,7 @@
 // PERFORMANCE RESULT (IA §20): 감정적 평가 -> 객관적 결과 -> 세계가 바뀐 결과 -> 돌아가기. Back locked.
 import { useSave } from '@/state/store';
-import { facilityAvailability } from '@/state/selectors';
+import { VENUES } from '@/data/master';
+import { facilityAvailability, unlockedRevenueStreams } from '@/state/selectors';
 import { useGameNav, useLockBack } from '@/app/navigation';
 import { won } from '@/app/format';
 import { Btn, EmptyState, Section } from '@/components/ui';
@@ -27,7 +28,10 @@ export function PerformanceResultScreen() {
   }
 
   const newOpps = Object.values(save.opportunities).filter((o) => o.createdWeek === save.world.week && o.status === 'NEW');
+  const soldOut = snap.audience >= (VENUES[snap.venueId]?.capacity ?? Infinity);
   const recording = facilityAvailability(save, 'RECORDING_ROOM');
+  const freshCareer = save.careerHistory.filter((h) => h.week === save.world.week && h.type === 'MILESTONE');
+  const canRelease = unlockedRevenueStreams(save).includes('MUSIC');
 
   return (
     <div className="imm">
@@ -40,7 +44,7 @@ export function PerformanceResultScreen() {
 
           <Section title="숫자로 남은 것">
             <dl className="kv">
-              <dt>관객</dt><dd>{snap.audience}명</dd>
+              <dt>관객</dt><dd>{snap.audience}명{soldOut ? ' · 매진' : ''}</dd>
               <dt>수익</dt><dd>+{won(snap.revenue)}</dd>
               <dt>팬</dt><dd>+{snap.fansDelta}</dd>
               <dt>평판</dt><dd>{snap.reputationDelta >= 0 ? '+' : ''}{snap.reputationDelta}</dd>
@@ -57,6 +61,12 @@ export function PerformanceResultScreen() {
               ))}
               {recording === 'AVAILABLE' && (
                 <div className="step__resultrow"><span className="step__bullet" /><span className="amber">녹음실을 건설할 수 있게 됐다</span></div>
+              )}
+              {freshCareer.map((h, i) => (
+                <div key={`c${i}`} className="step__resultrow"><span className="step__bullet" /><span className="accent">{h.text}</span></div>
+              ))}
+              {canRelease && (
+                <div className="step__resultrow"><span className="step__bullet" /><span className="amber">이제 음원을 낼 수 있다</span></div>
               )}
               <div className="step__resultrow"><span className="step__bullet" /><span className="dim">이 공연은 기록으로 남는다</span></div>
             </div>

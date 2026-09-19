@@ -9,7 +9,7 @@
 //  - pendingPerformance                  : accepted live offer -> Prep -> Performance link
 //  - counters                            : monotonic id counters (song_00018 style ids)
 // Missing fields on a persisted v1 save are filled by save/migrate.ts (ensureSaveDefaults).
-import type { CharacterId, IndividualActionId, MainActionId, SlotId, VisibleStats } from '@/data/master';
+import type { CharacterId, IndividualActionId, MainActionId, MusicDNA, SlotId, VisibleStats } from '@/data/master';
 
 export const SAVE_SCHEMA_VERSION = 1 as const;
 
@@ -82,6 +82,8 @@ export interface SongState {
   contributors: { composer: CharacterId[]; lyrics: CharacterId[] };
   originContext: string[];
   musicProfile: { popularity: number; artistry: number; fanFit: number; liveFit: number };
+  /** Music DNA the song was written with (PHASE 2A). Older saves may not have it. */
+  musicDna?: MusicDNA;
   genreTags: string[];
   status: SongStatus;
 }
@@ -90,7 +92,10 @@ export interface ReleaseState {
   id: string;
   type: 'SINGLE' | 'EP' | 'ALBUM';
   songIds: string[];
+  /** Absolute week (year-aware) so streaming decay works across a year boundary. */
   releasedWeek: number;
+  /** Snapshot of what this release did, kept as history (Character Master §14). */
+  result?: { revenue: number; fansDelta: number; reputationDelta: number; popularity: number };
 }
 
 export interface FacilityState {
@@ -222,6 +227,8 @@ export interface RngState {
 
 export interface SaveCounters {
   song: number; session: number; audition: number; opportunity: number; performance: number;
+  /** Added in PHASE 2A; ensureSaveDefaults backfills it for older saves. */
+  release: number;
 }
 
 export interface SaveData {

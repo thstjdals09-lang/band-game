@@ -83,16 +83,24 @@
 - 랩 맨 위에 "저장 상태" 섹션 추가: 현재 값과 기본값 차이(*) 표시, RESET ALL TUNING 버튼.
 - devStore는 localStorage `band-game.dev`에만 있고 SaveData와 무관하다. 기본값은 여전히 코드의 defaultZoom / DEFAULT_TEST_SPRITE이다.
 
+### 2026-09-19 — PHASE 2A: Growth Loop (반복 가능한 주간 루프)
+- 한 주가 **순수 함수 `simulateWeek(save) → WeekOutcome`** 으로 계산되고, `commitWeek(outcome)`이 그 객체를 **한 번만** 적용한다. 3중 가드(주차·연차 일치 / rng 위치 일치 / 계획 존재)로 화면 재진입·새로고침 중복 지급을 막는다.
+- 활동이 실제로 다르게 작용한다: 합주(경험치↑ 피로↑) / 녹음(경험치↑↑ 피로↑↑, 녹음실 필요) / 홍보(팬↑) / 휴식(회복) / 개인 일정(해당 멤버만). 체력·스트레스가 낮으면 경험치 획득이 줄어든다(`effectiveExperience`).
+- 성장: Character Master의 12개 growth curve를 `growthMultiplier`로 구현, 경험치 → 단계 → 스탯 상승. 상승폭은 `overallPotential` 잔여치와 `statBias`로 배분하며 잠재치를 넘지 않는다.
+- 곡: `createSong`이 Music DNA(평균·분산·극단값·역할 가중치) + 멤버 능력 + 컨디션 + 제작 맥락으로 GDD §06 4축을 계산한다. 2곡 상한 제거, 제목 중복 없음, 발매(SINGLE/EP)는 첫 공연 이후 해금되고 주간 음원 수익이 감쇠하며 들어온다.
+- 공연: 제안이 **반복 발생**한다(곡 보유 / 미예약 / 쿨다운 조건, 팬 수에 따라 Basement Club → Moonlight Club). 결과는 실력·무대력·곡 라이브 적합도·컨디션·라이브 안정성의 가중합이며 순간 선택과 난수는 보정치일 뿐이다.
+- 커리어: `career.ts` master data(티어·마일스톤·수익원·발매 형식). 마일스톤은 기록에서 **파생**되고 저장하지 않는다. Unknown → Local Act 승급 확인. 시설 해금은 하드코딩을 걷어내고 `unlock: ALWAYS | MILESTONE | CAREER_TIER` 데이터로 판정한다.
+- PHASE 1.1 승인 사항 반영: `SLOT_DEFINITIONS.KEYS.compatiblePositions`에서 `'Producer'` 제거.
+- 검수: 단위 테스트 78개 + 실제 브라우저 플레이 7주 연속(`tests/e2e/phase2a.mjs`) + 구형 세이브 호환(`compat.mjs`) + 전체 동선 스모크(`smoke.mjs`) 모두 통과.
+- PHASE 2B(관계·케미 6축·Special Pair Chemistry·이벤트 엔진·숨은 특성 발견)는 포함하지 않았다. 곡 계산의 관계 항은 `relationshipContribution()`이 **0을 반환**하는 연결 지점으로 분리해 두었고 임의 수치를 넣지 않았다.
+
 ## 판단 필요 / TODO (문서에 없거나 모호한 항목)
 
 - ~~Growth Curve 표기~~ 승인됨(PHASE 1.1): C05 = HIGH_START_SLOW, C13 = HIGH_START.
 - ~~Lineup 슬롯 수~~ 해결(PHASE 1.1): 가변 슬롯 구조, VS 기본 core 4포지션. 추가 포지션 해금 조건은 PHASE 2+ 설계.
 - ~~SaveData 추가 필드~~ 승인됨(PHASE 1.1): SaveData v1 정식 prototype 필드, schemaVersion 유지.
 - **동일 포지션 중복 슬롯** (결정, PHASE 1.1 승인 시): 데이터 구조상 허용하되 Vertical Slice 초기 UI에서는 기본 core slots만 노출한다.
-- **Synth / Producer 슬롯 규칙** (결정, PHASE 1.1 승인 시 — 아직 코드 미반영, 다음 작업 지시 때 적용):
-  Synth는 KEYS 계열로 취급 가능. **Producer는 KEYS에 자동 매핑하지 않는다.** Producer는 별도 creative/production role이며,
-  stage slot 배치는 해당 캐릭터가 Keys/Synth 포지션을 보유할 때만 가능하다.
-  → 적용 시 `SLOT_DEFINITIONS.KEYS.compatiblePositions`에서 `'Producer'` 제거. 현재 15명 중 Producer 보유자는 C06 한예준(Keys / Producer)뿐이라 Keys로 KEYS 배치는 계속 가능하고, C13 나유안(Multi)은 Multi 규칙을 따른다. Producer의 creative/production role 시스템은 PHASE 2+.
+- ~~Synth / Producer 슬롯 규칙~~ 해결(PHASE 2A에서 코드 반영): `SLOT_DEFINITIONS.KEYS.compatiblePositions`에서 `'Producer'` 제거. Synth만 KEYS 계열. C06 한예준은 Keys 포지션을 함께 가지므로 KEYS 배치가 계속 가능하다. Producer의 creative/production role 시스템은 PHASE 2+.
 - **밸런스 전부 TODO(balance)**: 시작 자금/Fans/Fame, 계약 금액, 시설 가격, 세션 비용, 공연 수익 등은 `prototypeBalance.ts` 및 각 master 파일의 placeholder. Hero HUD 값은 Source of Truth가 아니다.
 - **밴드 이름 이벤트**: IA §26의 "멤버 성향 기반 이름 제안"은 이후 구현. 현재 placeholder 칩 + 자유 입력(승인됨).
 - ~~첫 공연 곡 수~~ 해결(PHASE 1.1): 2곡 확보 후 공연 제안. 창작 주간당 1곡 템포는 플레이테스트 변수.
@@ -105,3 +113,10 @@
 - **캐릭터 가림 처리**: depth order는 완성됐으나 실제 sprite masking은 아트 도착 후 검증 필요.
 - **Stage 1 북쪽 벽 x 10..12** (확인된 결함, 미수정): Stage 1은 그 위치에 바닥이 없는데 벽만 그린다. Stage 1 벽을 x 0..9로 줄이고 Stage 2 패치가 x 10..11을 추가하는 것이 해법. 프레이밍 판단과 얮혀 있어 지시 대기 중.
 - **테스트 스프라이트 수치**: heightUnits 2.2 / footAnchor (61,318)은 개발 기본값이며 확정 규격이 아니다.
+- **PHASE 2A에서 문서에 수치가 없어 임의 확정하지 않은 항목** (전부 `prototypeBalance.ts`의 `TODO(balance)`):
+  활동별 체력/스트레스/사기/경험치 변화량, 단계당 필요 경험치(600)와 스탯 포인트(6), 저체력·고스트레스 페널티 계수,
+  공연 제안 쿨다운(1주)과 Moonlight Club 승급 팬 수(260), 지역 팬덤 마일스톤 팬 수(300), 음원 주간 수익 감쇠와 지급 기간,
+  발매 형식별 필요 곡 수(1/3/8), 공연 점수 가중치. **기획서에 근거가 없으므로 승인 대상이다.**
+- **밸런스 관찰(7주 플레이)**: 연습 위주로 짜면 2명 밴드의 체력이 0까지 떨어지고 스트레스가 77까지 오른다. 휴식을 섞지 않으면 계속 지친 상태로 공연하게 된다. 또한 첫 공연 전까지 수입원이 없어 자금이 한때 음수(₩-485K)가 된다. 둘 다 밸런스 수치 문제이며 임의로 조정하지 않았다.
+- **곡 제목 어휘**: `TITLE_BY_TONE` / `TITLE_BY_ENERGY`는 VS 콘텐츠 자리표시자다. GDD §06의 "작사가와 상황에서 제목이 나온다"를 만족하려면 캐릭터별 작성 대사가 필요하다.
+- **PHASE 2B 연결 지점**: `sim/song.ts`의 `relationshipContribution()`(현재 0 반환), `selectors.ts`의 `chemistryDiagnostics()`(현재 전 항목 '—' + 사유), 이벤트 엔진(현재 밴드명 이벤트만 스크립트).

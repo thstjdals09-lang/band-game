@@ -5,12 +5,12 @@ import { CHARACTERS, PROTOTYPE_BALANCE, VENUES } from '@/data/master';
 import { useSave } from '@/state/store';
 import { debutSongRequirement, lineupView, songList } from '@/state/selectors';
 import { performanceActions } from '@/state/actions';
+import { resolvePerformance } from '@/state/sim/performance';
 import { useGameNav, useLockBack } from '@/app/navigation';
 import { subjectParticle } from '@/app/format';
 import { PlaceholderAsset } from '@/components/PlaceholderAsset';
 import { CharacterVisual } from '@/components/CharacterVisual';
 import { Btn, EmptyState } from '@/components/ui';
-import type { PerformanceSnapshot } from '@/state/save/schema';
 
 const B = PROTOTYPE_BALANCE.performance;
 
@@ -82,20 +82,28 @@ export function PerformanceScreen() {
   };
 
   const finish = () => {
-    // TODO(PHASE2 engine): result = 실력 + 곡/세트리스트 + 준비도 + 컨디션 + 장비 + 지역 적합도 + 팀워크 (+ small RNG).
-    const peak = Math.min(100, energy);
-    const audience = Math.min(venue.capacity, B.baseAudience + Math.round(save.band.metrics.fans * B.audiencePerFan));
-    const grade: PerformanceSnapshot['grade'] =
-      peak >= B.gradeThresholds.great ? 'GREAT SHOW' : peak >= B.gradeThresholds.good ? 'GOOD SHOW' : peak >= B.gradeThresholds.okay ? 'OKAY' : 'DISASTER';
+    // IA §19: the result comes from the band's accumulated state; the moment choices and a small
+    // random spread only nudge it. See sim/performance.ts.
+    const maxChoiceEnergy = beats
+      .filter((b): b is Extract<Beat, { kind: 'CHOICE' }> => b.kind === 'CHOICE')
+      .reduce((a, b) => a + Math.max(...b.options.map((o) => o.energy)), 0);
+    const earned = choices.reduce((a, c) => {
+      const beat = beats.find((b) => b.kind === 'CHOICE' && b.prompt === c.prompt);
+      const opt = beat && beat.kind === 'CHOICE' ? beat.options.find((o) => o.id === c.choiceId) : undefined;
+      return a + (opt?.energy ?? 0);
+    }, 0);
+    const choiceScore = maxChoiceEnergy > 0 ? earned / maxChoiceEnergy : 0;
+
+    const result = resolvePerformance(save, choiceScore);
     performanceActions.commit({
       venueId: venue.id, venueName: venue.name,
       lineup: lineup.map((s) => ({ slot: s.slot, label: s.displayName ?? '' })),
       openingSongTitle: opening.title,
-      audience, grade,
-      revenue: audience * B.ticketRevenue,
-      fansDelta: Math.round(audience * B.fansPerAudience),
-      reputationDelta: B.reputationDelta[grade],
-      crowdEnergyPeak: peak,
+      audience: result.audience, grade: result.grade,
+      revenue: result.revenue,
+      fansDelta: result.fansDelta,
+      reputationDelta: result.reputationDelta,
+      crowdEnergyPeak: Math.round(result.score),
       choices,
     });
     go('/performance/result', { replace: true });
