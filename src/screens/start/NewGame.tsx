@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '@/state/store';
 import { PlaceholderAsset } from '@/components/PlaceholderAsset';
 import { Btn } from '@/components/ui';
+import { useSecretDevTap } from '@/components/DevAccess';
 
 export function NewGameScreen() {
   const save = useGameStore((s) => s.save);
@@ -12,6 +13,7 @@ export function NewGameScreen() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [confirmReset, setConfirmReset] = useState(false);
+  const devTap = useSecretDevTap();
 
   const start = () => {
     newGame(name);
@@ -24,7 +26,7 @@ export function NewGameScreen() {
         <div className="imm__scroll" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 20 }}>
           <PlaceholderAsset assetKey="TITLE_ART" variant="env" kind="scene" />
           <div>
-            <h1 className="step__title">밴드 육성게임</h1>
+            <h1 className="step__title" {...devTap}>밴드 육성게임</h1>
             <p className="dim meta mt8">작은 지하 연습실에서 시작한다.</p>
           </div>
         </div>

@@ -51,7 +51,7 @@ src/
 
 NEW GAME → BASECAMP → AUDITION → Candidate Detail → (Shortlist / Compare) → Contract → BAND / Lineup → Session Hire → SCHEDULE → NEXT WEEK → Week Resolution (→ 밴드 이름 이벤트 / NEW SONG) → BASECAMP 변화 → Opportunity Inbox → Performance Prep → PERFORMANCE → Choice → RESULT → MANAGEMENT / FACILITIES → BUILD → Expanded Basecamp
 
-QA용 테스트 프리셋(A~H)은 `/dev`에서 적용한다. 아이소메트릭 월드 검수는 `/dev/world`. 플레이어 UI에서는 둘 다 접근할 수 없다.
+QA용 테스트 프리셋(A~H)은 `/dev`에서 적용한다. `/dev`는 HUD의 주차 표시를 5번 연타해서도 열 수 있고, 한 번 열면 작은 DEV 칩이 생긴다. 아이소메트릭 월드 검수는 `/dev/world`. 플레이어 UI에서는 둘 다 접근할 수 없다.
 
 HOME은 한 장짜리 배경이 아니라 그리드 좌표를 가진 타일 월드다. 오브젝트는 기기에 관계없이 같은 맵 좌표에 있고 카메라 zoom/offset만 변한다. 에셋 규격은 `docs/BASECAMP_STAGE1_ASSET_PRODUCTION_SPEC.md` 참조.
 

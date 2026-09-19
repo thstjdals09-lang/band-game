@@ -22,6 +22,10 @@ export const DEFAULT_WORLD_TOGGLES: WorldDebugToggles = {
 };
 
 interface DevStore {
+  /** /dev has been reached at least once: show the small DEV chip on the chrome layer. */
+  devAccess: boolean;
+  setDevAccess: (v: boolean) => void;
+  unlockDev: () => void;
   diagnostics: boolean;
   setDiagnostics: (v: boolean) => void;
   toggleDiagnostics: () => void;
@@ -38,6 +42,9 @@ interface DevStore {
 export const useDevStore = create<DevStore>()(
   persist(
     (set, get) => ({
+      devAccess: false,
+      setDevAccess: (v) => set({ devAccess: v }),
+      unlockDev: () => set({ devAccess: true }),
       diagnostics: false,
       setDiagnostics: (v) => set({ diagnostics: v }),
       toggleDiagnostics: () => set({ diagnostics: !get().diagnostics }),

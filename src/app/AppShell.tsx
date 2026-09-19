@@ -5,6 +5,7 @@ import { useGameStore } from '@/state/store';
 import { BasecampWorld } from '@/world/BasecampWorld';
 import { Hud } from '@/components/Hud';
 import { Dock } from '@/components/Dock';
+import { DevFab } from '@/components/DevAccess';
 import { getRouteMeta } from './routes';
 import { useNavHistoryTracker } from './navigation';
 
@@ -31,6 +32,7 @@ export function AppShell() {
         <div className={layerCls}>
           <Outlet />
         </div>
+        {chrome && <DevFab />}
         {chrome && <Dock active={meta.dock} />}
       </div>
     </div>

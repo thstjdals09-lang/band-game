@@ -70,6 +70,12 @@
 - 랩에 play zoom 스테퍼와 drag range X/Y, character on screen 진단 추가.
 - 테스트 45개. 카메라 계약이 바뀜 기존 fit 전제 테스트 3개를 새 계약(고정 즐 / offset 변화 / 드래그 도달성)으로 교체했다.
 
+### 2026-09-19 — DEV 접근 편의성 (플레이어 UI 노출 없음)
+- 주소창 입력 없이 /dev로 가는 경로 두 가지. 둘 다 기본 상태에서는 보이지 않는다.
+- **비밀 제스처**: HUD의 주차 표시(Y1 W01) 또는 START 화면 타이틀을 1.6초 안에 5번 연타. 커서·호버·라벨 없음.
+- **DEV 칩**: /dev를 한 번 열면 chrome 레이어 우측 상단에 작고 흐림한 칩이 생긴다. /dev → Access에서 끄면 다시 숨겨지고 제스처만 남는다.
+- `devAccess`는 devStore(localStorage `band-game.dev`)에만 있고 SaveData와 무관하다. 몰입 화면(공연/주간 정리)에서는 chrome과 함께 숨겨진다.
+
 ## 판단 필요 / TODO (문서에 없거나 모호한 항목)
 
 - ~~Growth Curve 표기~~ 승인됨(PHASE 1.1): C05 = HIGH_START_SLOW, C13 = HIGH_START.

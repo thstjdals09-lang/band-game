@@ -1,6 +1,6 @@
 // DEV TOOLS (prototype QA only, not part of the IA). Reachable at /dev; never linked from game UI.
 // Holds the diagnostics toggle (asset keys + implementation notes) and the manual test presets.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGameStore } from '@/state/store';
 import { useDevStore } from '@/state/devStore';
 import { PRESETS, applyPreset } from '@/state/devPresets';
@@ -13,9 +13,15 @@ export function DevToolsScreen() {
   const save = useGameStore((s) => s.save);
   const resetSave = useGameStore((s) => s.resetSave);
   const diagnostics = useDevStore((s) => s.diagnostics);
+  const devAccess = useDevStore((s) => s.devAccess);
+  const setDevAccess = useDevStore((s) => s.setDevAccess);
+  const unlockDev = useDevStore((s) => s.unlockDev);
   const toggle = useDevStore((s) => s.toggleDiagnostics);
   const { go } = useGameNav();
   const [showJson, setShowJson] = useState(false);
+
+  // Reaching /dev at all means the chip is welcome from now on.
+  useEffect(() => { unlockDev(); }, [unlockDev]);
 
   const run = (id: (typeof PRESETS)[number]['id']) => {
     const route = applyPreset(id);
@@ -24,6 +30,18 @@ export function DevToolsScreen() {
 
   return (
     <Panel title="DEV TOOLS" subtitle="QA only" nav="back">
+      <Section title="Access">
+        <div className="rowcard">
+          <span className="grow">
+            <div className="rowcard__title">홈에 DEV 버튼 표시</div>
+            <div className="rowcard__meta">끄면 HUD 주차 표시를 5번 연타해서 다시 들어온다</div>
+          </span>
+          <Btn size="sm" variant={devAccess ? 'primary' : 'secondary'} onClick={() => setDevAccess(!devAccess)}>
+            {devAccess ? 'ON' : 'OFF'}
+          </Btn>
+        </div>
+      </Section>
+
       <Section title="Diagnostics">
         <div className="rowcard">
           <span className="grow">
