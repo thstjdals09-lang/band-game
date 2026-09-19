@@ -7,6 +7,7 @@
 
 import { CHARACTERS, PROTOTYPE_BALANCE, VENUES, type CharacterId } from '@/data/master';
 import type { PerformanceSnapshot, SaveData } from '../save/schema';
+import { performersOf } from './contract';
 import { createRng } from './rng';
 
 const P = PROTOTYPE_BALANCE.performance;
@@ -127,4 +128,37 @@ export function resolvePerformance(save: SaveData, choiceScore: number): Perform
     reputationDelta: P.reputationDelta[grade],
     inputs,
   };
+}
+
+// ---------------------------------------------------------------- 함께 선 무대 (읽기 전용)
+/**
+ * 두 고정 캐릭터가 함께 끝낸 공연이 몇 번인지 센다.
+ *
+ * 이미 끝난 공연 기록(performanceHistory)만 본다. 값을 저장하지 않고, 어떤 계산에도 보너스로
+ * 들어가지 않는다. 공연 점수·보상·관계·성장은 이 함수로 달라지지 않는다.
+ *
+ *  - 출전자는 기록에 남은 실제 출전 멤버 ID로만 판단한다. 지금의 라인업·계약·활동 멤버는 보지 않는다.
+ *  - 세션은 characterId가 없으므로 세어지지 않는다.
+ *  - 출전자를 알 수 없는 과거 기록(characterId가 없던 시절)은 건너뛴다. 없는 값을 지어내지 않는다.
+ *  - 같은 공연은 한 번만 센다. 한 공연에서 같은 사람이 여러 칸에 적혀 있어도 마찬가지다.
+ *  - 계약 기간과 무관하다. 재계약·포지션 변경·라인업 이탈로 지난 기록이 사라지지 않는다.
+ *    (주전 기용 약속의 계약 구간 판정과는 다른 개념이다.)
+ */
+export function sharedPerformances(
+  history: PerformanceSnapshot[],
+  a: CharacterId,
+  b: CharacterId,
+): number {
+  if (a === b) return 0; // 같은 사람끼리는 "함께 선 무대"가 성립하지 않는다
+  const counted = new Set<string>();
+  let shared = 0;
+  history.forEach((snap) => {
+    if (counted.has(snap.id)) return; // 같은 공연 기록은 한 번만
+    counted.add(snap.id);
+    const performers = performersOf(snap);
+    if (performers === null) return;  // 출전자를 알 수 없는 기록
+    const onStage = new Set<CharacterId>(performers);
+    if (onStage.has(a) && onStage.has(b)) shared += 1;
+  });
+  return shared;
 }
