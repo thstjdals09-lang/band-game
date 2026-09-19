@@ -4,7 +4,7 @@
 // shown as "아직 알 수 없음" with the reason - never an invented number.
 import { CHARACTERS, traitName } from '@/data/master';
 import { useSave } from '@/state/store';
-import { candidateFit } from '@/state/selectors';
+import { candidateFit, compareLeaders, VISIBLE_STAT_LABEL, VISIBLE_STAT_ORDER } from '@/state/selectors';
 import { useGameNav } from '@/app/navigation';
 import { Panel } from '@/components/Panel';
 import { CharacterVisual } from '@/components/CharacterVisual';
@@ -21,6 +21,8 @@ export function CompareScreen() {
 
   const fits = ids.map((id) => ({ id, fit: candidateFit(save, id) }));
   const unknownLabels = fits[0].fit.unknown;
+  // 나란히 놓은 후보들 사이에서 항목별 최고값. 어느 쪽이 앞서는지 숫자를 외우지 않아도 보인다.
+  const leaders = compareLeaders(ids);
 
   return (
     <Panel title="비교하기" subtitle={`후보 ${ids.length}명`} nav="back">
@@ -45,6 +47,7 @@ export function CompareScreen() {
 
       {/* 2. Core stats */}
       <Section title="핵심 5 스탯">
+        <div className="ahint" style={{ textAlign: 'left', marginBottom: 8 }}>색이 들어간 막대가 나란히 놓은 후보 중 가장 높은 값이다.</div>
         <div className={`compare compare--${ids.length}`}>
           {ids.map((id) => {
             const s = CHARACTERS[id].visibleStats;
@@ -52,11 +55,11 @@ export function CompareScreen() {
               <div key={id} className="compare__col">
                 <div className="compare__name" style={{ marginTop: 0, marginBottom: 8 }}>{CHARACTERS[id].name}</div>
                 <div className="col" style={{ gap: 6 }}>
-                  <StatBar compact label="실력" value={s.skill} />
-                  <StatBar compact label="창의" value={s.creative} />
-                  <StatBar compact label="무대" value={s.stage} />
-                  <StatBar compact label="스타" value={s.star} />
-                  <StatBar compact label="프로" value={s.pro} />
+                  {VISIBLE_STAT_ORDER.map((key) => (
+                    <div key={key} className={s[key] === leaders[key] ? 'cmpstat--best' : 'cmpstat--rest'}>
+                      <StatBar compact label={VISIBLE_STAT_LABEL[key].short} value={s[key]} />
+                    </div>
+                  ))}
                 </div>
               </div>
             );

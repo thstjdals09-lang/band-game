@@ -396,3 +396,79 @@ export function candidateFit(save: SaveData, id: CharacterId): CandidateFit {
     ],
   };
 }
+
+// ---- 오디션 후보 비교 뷰 (영입 화면 전용, 읽기 전용) ------------------------------------------
+// 후보끼리의 차이를 화면이 직접 계산하지 않도록 여기서 파생한다.
+// **이미 공개된 정보만** 쓴다: BASE_STATS가 공개된 후보의 visibleStats. hiddenStats, 숨은 특성,
+// 성장 잠재력, archetype / selectionReason 같은 비공개 설명은 절대 읽지 않는다.
+export type VisibleStatKey = keyof VisibleStats;
+export const VISIBLE_STAT_ORDER: VisibleStatKey[] = ['skill', 'creative', 'stage', 'star', 'pro'];
+export const VISIBLE_STAT_LABEL: Record<VisibleStatKey, { long: string; short: string }> = {
+  skill: { long: '실력', short: '실력' },
+  creative: { long: '창의성', short: '창의' },
+  stage: { long: '무대력', short: '무대' },
+  star: { long: '스타성', short: '스타' },
+  pro: { long: '프로의식', short: '프로' },
+};
+
+export interface CandidateStatView {
+  key: VisibleStatKey;
+  label: string;
+  short: string;
+  value: number;
+  /** 이번 오디션에서 스탯이 공개된 후보들의 평균. */
+  fieldAverage: number;
+  /** 1 = 후보 중 가장 높다 (동률 포함). */
+  rank: number;
+  lead: boolean;
+}
+export interface CandidateFieldView {
+  /** 스탯이 아직 공개되지 않은 후보면 null. */
+  stats: CandidateStatView[] | null;
+  /** 이 후보 자신의 가장 높은 스탯 (로스터 카드의 한 줄 요약). */
+  top: CandidateStatView | null;
+  /** "스타성 1위"처럼 다른 후보와 견줘 돋보이는 점. 공개된 수치에서만 나온다. */
+  standouts: string[];
+  fieldSize: number;
+}
+
+export function candidateFieldView(save: SaveData, auditionId: string, id: CharacterId): CandidateFieldView {
+  const audition = save.auditions[auditionId];
+  const empty: CandidateFieldView = { stats: null, top: null, standouts: [], fieldSize: 0 };
+  if (!audition) return empty;
+  const open = (cid: CharacterId) => !!audition.revealedInformation[cid]?.includes('BASE_STATS');
+  if (!open(id)) return empty;
+
+  const field = audition.candidateIds.filter(open);
+  const stats: CandidateStatView[] = VISIBLE_STAT_ORDER.map((key) => {
+    const value = CHARACTERS[id].visibleStats[key];
+    const values = field.map((cid) => CHARACTERS[cid].visibleStats[key]);
+    const fieldAverage = values.reduce((a, v) => a + v, 0) / values.length;
+    const rank = 1 + values.filter((v) => v > value).length;
+    return {
+      key, value, fieldAverage, rank,
+      label: VISIBLE_STAT_LABEL[key].long,
+      short: VISIBLE_STAT_LABEL[key].short,
+      lead: field.length > 1 && rank === 1,
+    };
+  });
+
+  const top = stats.reduce((best, x) => (x.value > best.value ? x : best), stats[0]);
+  let standouts = stats.filter((x) => x.lead).map((x) => `${x.label} 1위`);
+  if (standouts.length === 0 && field.length > 1) {
+    // 1위인 항목이 없으면, 후보 평균보다 가장 크게 앞서는 한 가지를 말해 준다.
+    const best = stats.reduce((b, x) => (x.value - x.fieldAverage > b.value - b.fieldAverage ? x : b), stats[0]);
+    const delta = Math.round(best.value - best.fieldAverage);
+    if (delta > 0) standouts = [`${best.label} 평균 +${delta}`];
+  }
+  return { stats, top, standouts, fieldSize: field.length };
+}
+
+/** 나란히 놓은 후보들 사이에서 각 스탯의 최고값 (비교 화면의 강조용). */
+export function compareLeaders(ids: CharacterId[]): Record<VisibleStatKey, number> {
+  const out = {} as Record<VisibleStatKey, number>;
+  VISIBLE_STAT_ORDER.forEach((key) => {
+    out[key] = Math.max(...ids.map((cid) => CHARACTERS[cid].visibleStats[key]));
+  });
+  return out;
+}

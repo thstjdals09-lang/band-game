@@ -11,7 +11,7 @@ import { useParams } from 'react-router-dom';
 import { CHARACTERS, CLAUSE_LABELS, CONTRACT_PROFILES, PROTOTYPE_BALANCE, type CharacterId } from '@/data/master';
 import { useSave } from '@/state/store';
 import { auditionActions, contractActions } from '@/state/actions';
-import { weeklySalaryBurden, weeklySessionCost } from '@/state/selectors';
+import { candidateFieldView, weeklySalaryBurden, weeklySessionCost } from '@/state/selectors';
 import {
   absoluteWeek, evaluateContract, nearestDurationOption, renewalOpen, sameTerms,
   type ContractTerms, type RolePromise,
@@ -21,6 +21,7 @@ import { won } from '@/app/format';
 import { Panel } from '@/components/Panel';
 import { CharacterVisual } from '@/components/CharacterVisual';
 import { Btn, EmptyState, Notice, Section, Tag } from '@/components/ui';
+import { StandoutChips } from './parts';
 
 const ROLE_LABEL: Record<RolePromise, string> = { CORE_MEMBER: '주전 멤버', SUPPORT_MEMBER: '서포트' };
 
@@ -91,6 +92,9 @@ export function ContractScreen() {
     go('/management/contracts', { replace: true });
   };
 
+  // 오디션 후보와 협상할 때는, 이 사람을 왜 골랐는지(공개된 강점)를 테이블 위에 다시 올려 둔다.
+  const fieldView = mode === 'SIGN' && audition ? candidateFieldView(save, audition.auditionId, cid) : null;
+
   const title = mode === 'SIGN' ? '계약 협상' : mode === 'RENEW' ? '재계약 협상' : '역할 재협상';
   const confirmLabel = mode === 'SIGN' ? '함께 하기로 한다' : mode === 'RENEW' ? '재계약한다' : '역할을 바꾼다';
 
@@ -115,11 +119,15 @@ export function ContractScreen() {
         <CharacterVisual id={cid} variant="BUST" />
         <div className="grow choice">
           <div className="choice__title">{c.name}</div>
+          <div className="tags mt8">{c.positions.map((p) => <Tag key={p} tone="role">{p.toUpperCase()}</Tag>)}</div>
           <p className="choice__text">{answered
             ? decision.reason
             : '테이블 건너편에 앉아 조건을 기다리고 있다.'}</p>
         </div>
       </div>
+      {fieldView && fieldView.standouts.length > 0 && (
+        <div className="mt12"><StandoutChips view={fieldView} /></div>
+      )}
 
       {existing && (
         <Section title="지금 계약">

@@ -235,16 +235,23 @@
 .homecta__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-accent); flex: none; }
 
 /* ---------- Audition roster ---------- */
-.roster { display: flex; gap: 10px; overflow-x: auto; padding: 12px var(--gutter); scroll-snap-type: x mandatory; }
+/* 후보 전원이 가로 스크롤 없이 보인다. 6명 이상이면 다음 줄로 넘어간다. */
+.roster { display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); gap: 6px; padding: 10px var(--gutter); }
 .roster__card {
-  flex: none; width: 84px; scroll-snap-align: start; display: flex; flex-direction: column; align-items: center; gap: 5px;
-  padding: 8px 6px; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-panel-2);
+  min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 7px 3px 6px; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-panel-2);
 }
 .roster__card--selected { border-color: var(--c-accent); background: var(--c-accent-soft); }
-.roster__card .ph--thumb { width: 60px; height: 60px; }
-.roster__name { font-size: var(--fs-body); font-weight: 700; }
-.roster__pos { font-size: 11px; letter-spacing: 0.04em; color: var(--c-text-dim); font-weight: 600; }
-.roster__star { position: absolute; top: 4px; right: 6px; color: var(--c-accent); font-size: 12px; }
+.roster__card .ph--thumb { width: 44px; height: 44px; }
+.roster__name { font-size: var(--fs-meta); font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.roster__pos { font-size: 10px; letter-spacing: 0.03em; color: var(--c-text-dim); font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 그 사람의 가장 높은 스탯 한 줄. 후보 중 1위면 강조한다. */
+.roster__sig { font-family: var(--font-mono); font-size: 11px; color: var(--c-text-dim); margin-top: 1px; }
+.roster__sig--lead { color: var(--c-accent); font-weight: 700; }
+.roster--compact { padding: 0; }
+.roster--compact .roster__card { padding: 6px 3px; min-height: 58px; justify-content: center; }
+.roster__star { position: absolute; top: 2px; right: 4px; z-index: 1; color: var(--c-accent); font-size: 13px; line-height: 1; }
+.roster__star--inline { color: var(--c-accent); font-size: 11px; margin-right: 2px; }
 .roster__wrap { position: relative; }
 
 /* ---------- Lineup ---------- */
@@ -334,3 +341,64 @@
 .fitrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--c-border); font-size: var(--fs-body); }
 .fitrow:last-child { border-bottom: 0; }
 .fitrow__unknown { font-size: var(--fs-meta); color: var(--c-text-faint); }
+
+/* ---------- Recruitment: 선택한 후보 히어로 / 비교 스탯 / 조사 카드 ---------- */
+.ahero {
+  position: relative; display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 12px; align-items: end;
+  padding: 10px var(--gutter) 0; border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border); overflow: hidden;
+}
+.ahero__visual { position: relative; display: grid; place-items: end center; }
+.ahero__visual .ph--full { width: 96px; height: 150px; border-bottom: 0; border-radius: 6px 6px 0 0; }
+.ahero__id { position: relative; display: flex; flex-direction: column; gap: 7px; padding-bottom: 12px; min-width: 0; }
+.ahero__name { font-size: var(--fs-hero); font-weight: 800; letter-spacing: -0.01em; line-height: 1.1; }
+.ahero__id .tags { gap: 5px; }
+.ahero__burden { display: flex; align-items: baseline; gap: 8px; }
+.abody { padding: 12px var(--gutter) 24px; }
+
+.standout { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.standout__label { font-size: var(--fs-label); color: var(--c-text-faint); }
+.standout__chip {
+  padding: 3px 9px; border-radius: 5px; font-size: var(--fs-meta); font-weight: 700;
+  color: var(--c-accent); background: var(--c-accent-soft); border: 1px solid var(--c-accent);
+}
+.standout__chip--soft { color: var(--c-text); background: transparent; border-color: var(--c-border-strong); }
+.afit { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.afit li { position: relative; padding-left: 14px; font-size: var(--fs-meta); color: var(--c-text-dim); }
+.afit li::before { content: ''; position: absolute; left: 2px; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--c-concrete); }
+.afit li.afit__ok { color: var(--c-text); }
+.afit li.afit__ok::before { background: var(--c-ok); }
+.ahint { font-size: var(--fs-label); color: var(--c-text-faint); text-align: center; min-height: 16px; }
+
+.fstats { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.fstat { display: grid; grid-template-columns: 54px 1fr 26px 26px; align-items: center; gap: 8px; font-size: var(--fs-meta); }
+.fstat__label { color: var(--c-text-dim); }
+.fstat__track { position: relative; height: 8px; background: var(--c-concrete); border-radius: 4px; }
+.fstat__fill { height: 100%; background: var(--c-text-dim); border-radius: 4px; }
+.fstat--lead .fstat__fill { background: var(--c-accent); }
+.fstat--lead .fstat__label { color: var(--c-text); font-weight: 700; }
+/* 세로선 = 이번 오디션 후보 평균 */
+.fstat__avg { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--c-text); border-radius: 1px; opacity: 0.85; }
+.fstat__value { font-family: var(--font-mono); font-weight: 600; text-align: right; }
+.fstat--lead .fstat__value { color: var(--c-accent); }
+.fstat__rank { font-size: 11px; font-weight: 700; color: var(--c-accent); }
+.fstats__legend { display: flex; align-items: center; gap: 6px; font-size: var(--fs-label); color: var(--c-text-faint); }
+.fstats__tick { display: inline-block; width: 2px; height: 10px; background: var(--c-text); opacity: 0.85; border-radius: 1px; }
+
+.inv__progress { font-size: var(--fs-label); color: var(--c-text-faint); margin-bottom: 8px; }
+.inv {
+  display: flex; flex-direction: column; gap: 5px; width: 100%; text-align: left; min-height: var(--tap);
+  padding: 11px 12px; border: 1px solid var(--c-border-strong); border-radius: var(--radius); background: var(--c-panel-2);
+}
+.inv__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.inv__title { font-size: var(--fs-body); font-weight: 700; }
+.inv__state { font-size: var(--fs-label); font-weight: 700; color: var(--c-accent); white-space: nowrap; }
+.inv__unknown { font-size: var(--fs-meta); color: var(--c-text-dim); }
+.inv--done { border-color: var(--c-border); background: transparent; }
+.inv--done .inv__state { color: var(--c-ok); }
+.inv__found { font-size: var(--fs-meta); color: var(--c-text); }
+
+/* 비교 화면: 나란히 놓은 후보 중 가장 높은 값 */
+.cmpstat--best .statbar__fill { background: var(--c-accent); }
+.cmpstat--best .statbar__value { color: var(--c-accent); }
+.cmpstat--best .statbar__label { color: var(--c-text); font-weight: 700; }
+.cmpstat--rest .statbar__fill { background: var(--c-text-dim); }
