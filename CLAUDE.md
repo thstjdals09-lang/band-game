@@ -59,6 +59,17 @@
 - WORLD BOUNDS 오버레이 추가(실제 월드 경계 + required rect를 디버그 문구와 구분).
 - 결과: 2.2u에서 캐릭터가 화면상 29px. 방 비율/카메라 결정을 위한 판단 근거 확보.
 
+### 2026-09-19 — PLAY CAMERA: fixed zoom + free drag (카메라만 수정)
+- **방 전체를 화면에 맞추는 조건 해제.** HOME은 `createCamera`가 고정 즐(defaultZoom 1.0)으로 그리고, 화면 밖은 드래그로 탐색한다.
+- 캐릭터 화면 크기 29px → **70px**(2.4배). 타일 128px.
+- 2축 자유 패닝. `clampAxis`가 월드를 화면 밖으로 버리지 못하게 막고(panMargin 72px 오버스크롤), 모든 모서리에 도달 가능하다.
+- 초기 시점은 바닥 중심(`focusPointOf`). 맵이 바뀜면 pan 리셋.
+- 빌드/프리뷰 면(Facilities, 랩)은 종전처럼 전체 프레이밍 유지(`cameraMode: 'fit'`, mode==='build'에서 자동). **게임 UI 파일은 하나도 수정하지 않았다.**
+- **버그 수정**: pointerdown에서 pointer capture를 잡으면 이후 click이 캐러 요소로 retarget되어 오브젝트 탭이 전부 죽는다. 드래그로 판정된 뒤에만 캡처하도록 변경.
+- 드래그 임계값 6px. 드래그 뒤 따라오는 click은 무시해 패닝이 네비게이션을 일으키지 않는다.
+- 랩에 play zoom 스테퍼와 drag range X/Y, character on screen 진단 추가.
+- 테스트 45개. 카메라 계약이 바뀜 기존 fit 전제 테스트 3개를 새 계약(고정 즐 / offset 변화 / 드래그 도달성)으로 교체했다.
+
 ## 판단 필요 / TODO (문서에 없거나 모호한 항목)
 
 - ~~Growth Curve 표기~~ 승인됨(PHASE 1.1): C05 = HIGH_START_SLOW, C13 = HIGH_START.
@@ -75,7 +86,7 @@
 - **Performance 순간 선택 텍스트**: 사용자 지시의 민채린 솔로 예시를 GUITAR 슬롯 멤버 이름으로 치환해 사용. 실제 대사/이벤트 정의는 VS 콘텐츠 단계.
 - **Display 폰트/아이콘/팔레트 hex**: Implementation Lock 아님. 브러시·마커 Display 폰트와 Dock 아이콘 에셋 없음 → 시스템 폰트 + 글자 placeholder. `styles/tokens.css`는 PROTOTYPE APPROXIMATION.
 - **Dev Tools(`/dev`)**: IA에 없는 프로토타입 검수용 화면. 출시 빌드에서 제거 대상.
-- **방 크기와 세로 여백**: 직사각형 방은 2:1 다이아몬드로 투영되므로 세로 화면에서는 위아래 여백이 남는다. 현재는 모든 탭 오브젝트를 보장하는 범위에서 최대 확대한다. 맵 타일 수 축소 / 가장자리 크롭 / 세로 패닝 중 어느 방향을 택할지 아트 방향 확정 후 결정 필요.
+- ~~방 크기와 세로 여백~~ 해결: 방 전체 맞춤을 포기하고 고정 즐 + 2축 드래그로 전환. 기본 즐 1.0은 PROTOTYPE VARIABLE이며 /dev/world에서 조정한다.
 - **Stage 1 타일 좌표**: 현재 배치는 임시값(FINAL ART POSITION 아님). 승인된 방 아트가 나오면 재작성한다.
 - **tile render 크기 128×64**: PROTOTYPE RENDER VARIABLE. 2:1 비율만 규칙이고 절대값은 미확정.
 - **캐릭터 가림 처리**: depth order는 완성됐으나 실제 sprite masking은 아트 도착 후 검증 필요.

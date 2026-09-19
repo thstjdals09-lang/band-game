@@ -3,7 +3,7 @@
 
 import type { SaveData } from '@/state/save/schema';
 import { basecampStage } from '@/state/selectors';
-import { fitCameraFocused, type Camera, type Viewport } from '../iso/camera';
+import { createCamera, fitCameraFocused, type Camera, type Viewport } from '../iso/camera';
 import { footprintTiles, rectTiles, type GridPos } from '../iso/coordinates';
 import { DEPTH_BIAS, depthKey, RENDER_PASS, sortByDepth } from '../iso/depth';
 import { OccupancyGrid } from '../iso/occupancy';
@@ -13,7 +13,8 @@ import { occupancyPlacements, resolveCharacterPlacements, resolveObjectInstances
 import { CHARACTER_SPRITE_CONTRACT } from '../assets/contract';
 import { spriteFor, type TestSpriteParams } from '../assets/testSprite';
 import { OBJECT_DEFINITIONS } from '../objects/definitions';
-import type { RenderNode, WorldScene } from './types';
+import type { CameraMode, RenderNode, WorldScene } from './types';
+import type { ScreenPoint } from '../iso/projection';
 
 const OBJECT_HEIGHTS: Record<string, number> = Object.fromEntries(
   Object.values(OBJECT_DEFINITIONS).map((d) => [d.id, d.heightUnits]),
@@ -34,6 +35,12 @@ export interface BuildSceneInput {
   stageOverride?: number;
   /** WORLD VISUAL FIT TEST stand-in sprite (development only). */
   testSprite?: TestSpriteParams;
+  /** 'play' (default for HOME) keeps a readable zoom and lets the player drag; 'fit' frames everything. */
+  cameraMode?: CameraMode;
+  /** Play-camera drag offset in screen px (clamped inside the camera). */
+  pan?: ScreenPoint;
+  /** Play-camera zoom override (dev lab). */
+  zoom?: number;
 }
 
 export function buildWorldScene(input: BuildSceneInput): WorldScene {
@@ -125,7 +132,11 @@ export function buildWorldScene(input: BuildSceneInput): WorldScene {
     ? boundsForTiles(requiredTiles, projection, 2)
     : cameraBoundsOf(map, projection);
   const full = cameraBoundsOf(map, projection);
-  const camera = fitCameraFocused(full, required, viewport);
+  // Build/preview surfaces still frame the whole room; the playable world does not.
+  const cameraMode: CameraMode = input.cameraMode ?? (mode === 'build' ? 'fit' : 'play');
+  const camera = cameraMode === 'fit'
+    ? fitCameraFocused(full, required, viewport)
+    : createCamera({ worldBounds: full, focus: focusPointOf(map, projection), viewport, zoom: input.zoom, pan: input.pan });
 
   return {
     map,
@@ -133,6 +144,7 @@ export function buildWorldScene(input: BuildSceneInput): WorldScene {
     mode,
     projection,
     camera,
+    cameraMode,
     worldBounds: full,
     requiredBounds: required,
     nodes: sortByDepth(nodes),
@@ -150,6 +162,12 @@ export function cameraBoundsOf(map: BasecampMap, projection: IsoProjection = PRO
   const tallestWall = map.wallTiles.reduce((m, w) => Math.max(m, w.heightUnits), 0);
   const tallestProp = map.objects.reduce((m, o) => Math.max(m, OBJECT_HEIGHTS[o.defId] ?? 0), 0);
   return boundsForTiles(tiles, projection, Math.max(tallestWall, tallestProp, 1));
+}
+
+/** Where the play camera looks when the drag offset is zero: the centre of the actual floor. */
+export function focusPointOf(map: BasecampMap, projection: IsoProjection = PROTOTYPE_PROJECTION): ScreenPoint {
+  const floor = boundsForTiles(map.floorTiles.map((t) => t.pos), projection, 0);
+  return { x: floor.x + floor.width / 2, y: floor.y + floor.height / 2 };
 }
 
 /** All tiles an object covers - exported for the dev lab and tests. */

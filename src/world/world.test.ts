@@ -9,12 +9,13 @@ import {
   OccupancyGrid, wouldOverlap,
   fitCamera, fitCameraToTiles, safeRectOf, pickTile, pickTargetAtTile, tapRadiusFor,
   MIN_TAP_RADIUS_PX, isTileInSafeArea, boundsForTiles,
+  createCamera, clampPanTo, isTileReachable, DEFAULT_CAMERA_CONFIG,
 } from './iso';
 import { BASECAMP_STAGE_1, BASECAMP_STAGE_2, basecampMapForStage, applyMapPatch, spawnForSlot, hasFloorAt } from './maps';
 import { BASECAMP_STAGE_2_PATCH } from './maps/basecampStage2';
 import { OBJECT_DEFINITIONS, depthAnchorFor, interactionTileFor } from './objects/definitions';
 import { occupancyPlacements, resolveCharacterPlacements, resolveObjectInstances } from './objects/instances';
-import { buildWorldScene, cameraBoundsOf } from './renderer/buildScene';
+import { buildWorldScene, cameraBoundsOf, focusPointOf } from './renderer/buildScene';
 import { DEFAULT_TEST_SPRITE, spriteFor } from './assets/testSprite';
 import { createNewGame } from '@/state/save/newGame';
 import type { SaveData } from '@/state/save/schema';
@@ -278,32 +279,107 @@ describe('character spawn architecture', () => {
   });
 });
 
-// 9 ------------------------------------------------------------------ responsive camera
-describe('responsive camera fit', () => {
-  it('keeps identical object coordinates on every viewport and only changes the camera', () => {
+// 9 ------------------------------------------------------------------ play camera + drag
+// CONTRACT CHANGE: the playable world is no longer fitted to the screen. It renders at a fixed
+// readable zoom and everything outside the viewport is reached by dragging on both axes.
+describe('play camera and drag panning', () => {
+  it('keeps identical object coordinates on every viewport', () => {
     const save = saveWithBand();
     const scenes = VIEWPORTS.map((v) => buildWorldScene({ save, viewport: { ...v, insets } }));
     const anchors = scenes.map((s) => s.nodes.filter((n) => n.kind === 'object').map((n) => `${n.id}@${n.anchor.x},${n.anchor.y}`));
     anchors.forEach((a) => expect(a).toEqual(anchors[0]));
-    const zooms = scenes.map((s) => s.camera.zoom);
-    expect(new Set(zooms).size).toBeGreaterThan(1);
   });
 
-  it('zooms out on a small phone rather than moving objects', () => {
+  it('draws the world at the same readable zoom on every phone', () => {
     const save = saveWithBand();
-    const small = buildWorldScene({ save, viewport: { width: 320, height: 568, insets } });
-    const large = buildWorldScene({ save, viewport: { width: 430, height: 932, insets } });
-    expect(small.camera.zoom).toBeLessThan(large.camera.zoom);
+    const zooms = VIEWPORTS.map((v) => buildWorldScene({ save, viewport: { ...v, insets } }).camera.zoom);
+    zooms.forEach((z) => expect(z).toBe(DEFAULT_CAMERA_CONFIG.defaultZoom));
   });
 
-  it('frames every interactive object inside the safe viewport on all presets', () => {
+  it('adapts by changing the camera offset, not the map', () => {
+    const save = saveWithBand();
+    const offsets = VIEWPORTS.map((v) => {
+      const c = buildWorldScene({ save, viewport: { ...v, insets } }).camera;
+      return `${Math.round(c.offsetX)},${Math.round(c.offsetY)}`;
+    });
+    expect(new Set(offsets).size).toBeGreaterThan(1);
+  });
+
+  it('gives a smaller phone more world to explore by dragging', () => {
+    const save = saveWithBand();
+    const range = (v: { width: number; height: number }) => {
+      const c = buildWorldScene({ save, viewport: { ...v, insets } }).camera.panBounds;
+      return (c.maxX - c.minX) + (c.maxY - c.minY);
+    };
+    expect(range({ width: 320, height: 568 })).toBeGreaterThan(range({ width: 430, height: 932 }));
+  });
+
+  it('lets a drag reach every interactive object on all presets', () => {
     const save = saveWithBand();
     VIEWPORTS.forEach((v) => {
       const scene = buildWorldScene({ save, viewport: { ...v, insets } });
       scene.nodes.filter((n) => n.kind === 'object' && n.target).forEach((n) => {
-        expect(isTileInSafeArea(n.anchor, scene.camera, proj)).toBe(true);
+        (n.hitTiles ?? [n.anchor]).forEach((t) => {
+          expect(isTileReachable(t, scene.camera, proj)).toBe(true);
+        });
       });
     });
+  });
+
+  it('can drag to every corner of the world without losing it off screen', () => {
+    const save = saveWithBand();
+    const viewport = { width: 390, height: 844, insets };
+    const base = buildWorldScene({ save, viewport });
+    const far = 100000;
+    [{ x: far, y: far }, { x: -far, y: -far }, { x: far, y: -far }, { x: -far, y: far }].forEach((raw) => {
+      const dragged = buildWorldScene({ save, viewport, pan: raw });
+      const b = dragged.camera.panBounds;
+      expect(dragged.camera.pan.x).toBeGreaterThanOrEqual(b.minX);
+      expect(dragged.camera.pan.x).toBeLessThanOrEqual(b.maxX);
+      expect(dragged.camera.pan.y).toBeGreaterThanOrEqual(b.minY);
+      expect(dragged.camera.pan.y).toBeLessThanOrEqual(b.maxY);
+      // the world still overlaps the safe rect after the most extreme drag
+      const r = dragged.camera.safeRect;
+      const left = dragged.camera.worldBounds.x * dragged.camera.zoom + dragged.camera.offsetX;
+      const right = left + dragged.camera.worldBounds.width * dragged.camera.zoom;
+      const top = dragged.camera.worldBounds.y * dragged.camera.zoom + dragged.camera.offsetY;
+      const bottom = top + dragged.camera.worldBounds.height * dragged.camera.zoom;
+      expect(right).toBeGreaterThan(r.x);
+      expect(left).toBeLessThan(r.x + r.width);
+      expect(bottom).toBeGreaterThan(r.y);
+      expect(top).toBeLessThan(r.y + r.height);
+    });
+    expect(base.camera.pan).toEqual({ x: 0, y: 0 });
+  });
+
+  it('allows drag on both axes, not only vertically', () => {
+    const scene = buildWorldScene({ save: saveWithBand(), viewport: { width: 390, height: 844, insets } });
+    const b = scene.camera.panBounds;
+    expect(b.maxX - b.minX).toBeGreaterThan(0);
+    expect(b.maxY - b.minY).toBeGreaterThan(0);
+  });
+
+  it('clamps a raw drag offset against the current camera', () => {
+    const scene = buildWorldScene({ save: saveWithBand(), viewport: { width: 390, height: 844, insets } });
+    const clamped = clampPanTo(scene.camera, { x: 99999, y: -99999 });
+    expect(clamped.x).toBe(scene.camera.panBounds.maxX);
+    expect(clamped.y).toBe(scene.camera.panBounds.minY);
+  });
+
+  it('starts centred on the floor, not on the walls', () => {
+    const scene = buildWorldScene({ save: saveWithBand(), viewport: { width: 390, height: 844, insets } });
+    const focus = focusPointOf(BASECAMP_STAGE_1);
+    const screenX = focus.x * scene.camera.zoom + scene.camera.offsetX;
+    const screenY = focus.y * scene.camera.zoom + scene.camera.offsetY;
+    expect(screenX).toBeCloseTo(scene.camera.safeRect.x + scene.camera.safeRect.width / 2, 0);
+    expect(screenY).toBeCloseTo(scene.camera.safeRect.y + scene.camera.safeRect.height / 2, 0);
+  });
+
+  it('still frames the whole room for build previews', () => {
+    const save = saveWithBand();
+    const scene = buildWorldScene({ save, mode: 'build', viewport: { width: 390, height: 210, insets: { top: 0, bottom: 0, left: 0, right: 0 } } });
+    expect(scene.cameraMode).toBe('fit');
+    expect(scene.camera.zoom).toBeLessThan(DEFAULT_CAMERA_CONFIG.defaultZoom);
   });
 
   it('excludes the HUD and Dock from the safe rect', () => {
@@ -313,16 +389,21 @@ describe('responsive camera fit', () => {
   });
 
   it('respects the zoom clamp', () => {
-    const bounds = boundsForTiles([{ x: 0, y: 0 }, { x: 200, y: 200 }], proj, 0);
-    const cam = fitCamera(bounds, { width: 320, height: 568, insets }, { minZoom: 0.5, maxZoom: 1, padding: 8 });
-    expect(cam.zoom).toBe(0.5);
+    const cam = createCamera({
+      worldBounds: boundsForTiles([{ x: 0, y: 0 }, { x: 9, y: 7 }], proj, 0),
+      focus: { x: 0, y: 0 },
+      viewport: { width: 320, height: 568, insets },
+      zoom: 99,
+    });
+    expect(cam.zoom).toBe(DEFAULT_CAMERA_CONFIG.maxZoom);
     expect(cam.clamped).toBe(true);
   });
 
-  it('keeps the whole authored camera bound in view at 390x844', () => {
+  it('keeps the legacy fit helpers working for previews and tests', () => {
     const cam = fitCamera(cameraBoundsOf(BASECAMP_STAGE_1), { width: 390, height: 844, insets });
     expect(cam.clamped).toBe(false);
     expect(cam.zoom).toBeGreaterThan(0);
+    expect(isTileInSafeArea({ x: 4, y: 4 }, cam, proj)).toBe(true);
   });
 });
 

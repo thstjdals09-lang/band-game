@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useSave } from '@/state/store';
 import { useDevStore, type WorldDebugToggles } from '@/state/devStore';
 import { TEST_SPRITE_LIMITS } from '@/world/assets/testSprite';
+import { DEFAULT_CAMERA_CONFIG } from '@/world';
 import { BasecampWorld } from '@/world/BasecampWorld';
 import {
   basecampMapForStage, buildWorldScene, cameraBoundsOf,
@@ -43,13 +44,14 @@ export function WorldLabScreen() {
   const resetSprite = useDevStore((s) => s.resetTestSprite);
   const [stage, setStage] = useState(1);
   const [vp, setVp] = useState(VIEWPORTS[2]);
+  const [zoom, setZoom] = useState(DEFAULT_CAMERA_CONFIG.defaultZoom);
 
   const insets = readChromeInsets();
   const map = basecampMapForStage(stage);
 
   const report = useMemo(() => {
     const scene = buildWorldScene({
-      save, stageOverride: stage, mode: 'build',
+      save, stageOverride: stage, mode: 'build', cameraMode: 'play', zoom,
       viewport: { width: vp.width, height: vp.height, insets },
     });
     const instances = resolveObjectInstances(map, save, 'build');
@@ -57,7 +59,7 @@ export function WorldLabScreen() {
     const bounds = cameraBoundsOf(map);
     const interactive = scene.nodes.filter((n) => n.kind === 'object' && n.target);
     return { scene, grid, bounds, instances, interactive };
-  }, [save, stage, vp, map, insets]);
+  }, [save, stage, vp, zoom, map, insets]);
 
   const { scene, grid, bounds, instances, interactive } = report;
   const cam = scene.camera;
@@ -85,6 +87,21 @@ export function WorldLabScreen() {
         </div>
       </Section>
 
+      <Section title="Play camera zoom">
+        <div className="row row--between">
+          <span className="rowcard__meta">zoom (PROTOTYPE VARIABLE)</span>
+          <span className="stepper">
+            <button onClick={() => setZoom((z) => Math.max(DEFAULT_CAMERA_CONFIG.minZoom, +(z - 0.05).toFixed(2)))}>−</button>
+            <span>{zoom.toFixed(2)} · tile {Math.round(PROTOTYPE_PROJECTION.tileWidth * zoom)}px</span>
+            <button onClick={() => setZoom((z) => Math.min(DEFAULT_CAMERA_CONFIG.maxZoom, +(z + 0.05).toFixed(2)))}>+</button>
+          </span>
+        </div>
+        <div className="row mt12">
+          <Btn size="sm" variant="ghost" onClick={() => setZoom(DEFAULT_CAMERA_CONFIG.defaultZoom)}>RESET</Btn>
+        </div>
+        <div className="rowcard__meta mt8">방 전체를 맞추지 않는다. 화면 밖은 HOME에서 드래그로 탐색한다.</div>
+      </Section>
+
       <Section title="Viewport preset">
         <div className="seg seg--scroll">
           {VIEWPORTS.map((v) => (
@@ -96,13 +113,16 @@ export function WorldLabScreen() {
           style={{ width: vp.width * scale, height: vp.height * scale }}
         >
           <div style={{ width: vp.width, height: vp.height, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-            <BasecampWorld mode="build" interactive={false} stageOverride={stage} insets={insets} debug={flags} />
+            <BasecampWorld mode="build" cameraMode="play" zoom={zoom} pannable={false} interactive={false} stageOverride={stage} insets={insets} debug={flags} />
             <div className="lab__chrome lab__chrome--top" style={{ height: insets.top }} />
             <div className="lab__chrome lab__chrome--bottom" style={{ height: insets.bottom }} />
           </div>
         </div>
         <dl className="kv mt12">
-          <dt>zoom</dt><dd>{cam.zoom.toFixed(3)}{cam.clamped ? ' (clamped)' : ''}</dd>
+          <dt>zoom</dt><dd>{cam.zoom.toFixed(2)}{cam.clamped ? ' (clamped)' : ''}</dd>
+          <dt>drag range X</dt><dd>{Math.round(cam.panBounds.maxX - cam.panBounds.minX)}px</dd>
+          <dt>drag range Y</dt><dd>{Math.round(cam.panBounds.maxY - cam.panBounds.minY)}px</dd>
+          <dt>character on screen</dt><dd>{Math.round(sprite.heightUnits * PROTOTYPE_PROJECTION.elevationHeight * cam.zoom)}px</dd>
           <dt>offset</dt><dd>{Math.round(cam.offsetX)}, {Math.round(cam.offsetY)}</dd>
           <dt>safe rect</dt><dd>{Math.round(cam.safeRect.x)},{Math.round(cam.safeRect.y)} · {Math.round(cam.safeRect.width)} × {Math.round(cam.safeRect.height)}</dd>
           <dt>safe centre</dt><dd>{Math.round(cam.safeRect.x + cam.safeRect.width / 2)}, {Math.round(cam.safeRect.y + cam.safeRect.height / 2)}</dd>

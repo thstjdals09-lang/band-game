@@ -38,10 +38,14 @@ export interface RenderNode {
   sprite?: SpritePlacement;
 }
 
+export type CameraMode = 'play' | 'fit';
+
 export interface WorldScene {
   map: BasecampMap;
   stage: number;
   mode: 'home' | 'build';
+  /** 'play' = fixed readable zoom + drag to explore. 'fit' = frame everything (previews). */
+  cameraMode: CameraMode;
   projection: IsoProjection;
   camera: Camera;
   /** Already depth-sorted: render in array order. */

@@ -26,14 +26,29 @@ export interface CameraConfig {
   maxZoom: number;
   /** Breathing room inside the safe viewport, in CSS px. */
   padding: number;
+  /**
+   * Play-mode zoom. The room is deliberately NOT fitted to the screen: characters and furniture
+   * are drawn at a readable size and the rest of the world is reached by dragging.
+   * PROTOTYPE RENDER VARIABLE - tune in /dev/world, not locked.
+   */
+  defaultZoom: number;
+  /** How far past a world edge a drag may pull, in CSS px. */
+  panMargin: number;
 }
 
 /** PROTOTYPE RENDER VARIABLE - tuned for the debug renderer, not a locked art spec. */
 export const DEFAULT_CAMERA_CONFIG: CameraConfig = {
   minZoom: 0.18,
-  maxZoom: 1,
+  maxZoom: 2,
   padding: 8,
+  defaultZoom: 1,
+  panMargin: 72,
 };
+
+/** Range a drag may move the camera on one axis. */
+export interface PanBounds {
+  minX: number; maxX: number; minY: number; maxY: number;
+}
 
 export interface Camera {
   /** Scale applied to world render units. */
@@ -45,8 +60,12 @@ export interface Camera {
   safeRect: ScreenRect;
   /** World-space rect the camera was fitted to. */
   worldBounds: ScreenRect;
-  /** True when the fit hit the zoom clamp and content may extend past the safe rect. */
+  /** True when the zoom hit the min/max clamp. */
   clamped: boolean;
+  /** Applied drag offset, already clamped. */
+  pan: ScreenPoint;
+  /** Allowed drag range on both axes; 0-width means that axis needs no panning. */
+  panBounds: PanBounds;
 }
 
 export function safeRectOf(viewport: Viewport): ScreenRect {
@@ -60,6 +79,9 @@ export function safeRectOf(viewport: Viewport): ScreenRect {
 }
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+
+/** Fit cameras frame everything, so they expose no drag range. */
+const ZERO_PAN_BOUNDS: PanBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 
 /**
  * Fit a world-space rect into the safe viewport.
@@ -83,7 +105,7 @@ export function fitCamera(
   const offsetX = safeRect.x + safeRect.width / 2 - worldCx * zoom + pan.x;
   const offsetY = safeRect.y + safeRect.height / 2 - worldCy * zoom + pan.y;
 
-  return { zoom, offsetX, offsetY, safeRect, worldBounds, clamped };
+  return { zoom, offsetX, offsetY, safeRect, worldBounds, clamped, pan: { ...pan }, panBounds: ZERO_PAN_BOUNDS };
 }
 
 /** World render units -> screen px. */
@@ -140,6 +162,8 @@ export function fitCameraFocused(
     safeRect,
     worldBounds: full,
     clamped: raw < config.minZoom || raw > config.maxZoom,
+    pan: { ...pan },
+    panBounds: ZERO_PAN_BOUNDS,
   };
 }
 
@@ -171,4 +195,103 @@ export function readChromeInsets(doc: Document = document): ViewportInsets {
   } catch {
     return { top: 42, bottom: 66, left: 0, right: 0 };
   }
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// Play camera: fixed readable zoom + free two-axis drag.
+// The whole room is intentionally NOT framed; the player drags to explore it.
+// ---------------------------------------------------------------------------------------------
+
+/** Clamp one axis so a drag can reach every edge without losing the world off screen. */
+function clampAxis(
+  contentStartAtZeroPan: number,
+  contentSize: number,
+  safeStart: number,
+  safeSize: number,
+  margin: number,
+  value: number,
+): { value: number; min: number; max: number } {
+  let min: number;
+  let max: number;
+  if (contentSize >= safeSize) {
+    // World is larger than the viewport: it must keep covering the safe rect (plus overscroll).
+    max = safeStart + margin - contentStartAtZeroPan;
+    min = safeStart + safeSize - margin - contentSize - contentStartAtZeroPan;
+  } else {
+    // World is smaller: it may move inside the safe rect but must stay within it (plus overscroll).
+    min = safeStart - margin - contentStartAtZeroPan;
+    max = safeStart + safeSize + margin - contentSize - contentStartAtZeroPan;
+  }
+  if (min > max) { const mid = (min + max) / 2; min = mid; max = mid; }
+  return { value: clamp(value, min, max), min, max };
+}
+
+export interface CameraInput {
+  /** Full world-space rect of everything that exists (never cropped away). */
+  worldBounds: ScreenRect;
+  /** World-space point shown in the middle of the safe rect when pan is zero. */
+  focus: ScreenPoint;
+  viewport: Viewport;
+  /** Explicit zoom; defaults to config.defaultZoom. */
+  zoom?: number;
+  /** Raw drag offset in screen px; clamped internally. */
+  pan?: ScreenPoint;
+  config?: CameraConfig;
+}
+
+/**
+ * Build a play camera at a fixed zoom around `focus`, with the drag offset clamped so every part
+ * of the world stays reachable and none of it can be thrown off screen.
+ */
+export function createCamera(input: CameraInput): Camera {
+  const config = input.config ?? DEFAULT_CAMERA_CONFIG;
+  const safeRect = safeRectOf(input.viewport);
+  const requested = input.zoom ?? config.defaultZoom;
+  const zoom = clamp(requested, config.minZoom, config.maxZoom);
+  const pan = input.pan ?? { x: 0, y: 0 };
+
+  const baseX = safeRect.x + safeRect.width / 2 - input.focus.x * zoom;
+  const baseY = safeRect.y + safeRect.height / 2 - input.focus.y * zoom;
+
+  const x = clampAxis(
+    input.worldBounds.x * zoom + baseX, input.worldBounds.width * zoom,
+    safeRect.x, safeRect.width, config.panMargin, pan.x,
+  );
+  const y = clampAxis(
+    input.worldBounds.y * zoom + baseY, input.worldBounds.height * zoom,
+    safeRect.y, safeRect.height, config.panMargin, pan.y,
+  );
+
+  return {
+    zoom,
+    offsetX: baseX + x.value,
+    offsetY: baseY + y.value,
+    safeRect,
+    worldBounds: input.worldBounds,
+    clamped: requested !== zoom,
+    pan: { x: x.value, y: y.value },
+    panBounds: { minX: x.min, maxX: x.max, minY: y.min, maxY: y.max },
+  };
+}
+
+/** Clamp a raw drag offset against a camera that was already built. */
+export function clampPanTo(camera: Camera, pan: ScreenPoint): ScreenPoint {
+  return {
+    x: clamp(pan.x, camera.panBounds.minX, camera.panBounds.maxX),
+    y: clamp(pan.y, camera.panBounds.minY, camera.panBounds.maxY),
+  };
+}
+
+/** Can this tile be brought into the safe area by dragging? */
+export function isTileReachable(p: GridPos, cam: Camera, proj: IsoProjection = PROTOTYPE_PROJECTION): boolean {
+  const world = gridToScreen(p, proj);
+  const screenAtZeroPan = {
+    x: world.x * cam.zoom + cam.offsetX - cam.pan.x,
+    y: world.y * cam.zoom + cam.offsetY - cam.pan.y,
+  };
+  const r = cam.safeRect;
+  const xOk = screenAtZeroPan.x + cam.panBounds.maxX >= r.x && screenAtZeroPan.x + cam.panBounds.minX <= r.x + r.width;
+  const yOk = screenAtZeroPan.y + cam.panBounds.maxY >= r.y && screenAtZeroPan.y + cam.panBounds.minY <= r.y + r.height;
+  return xOk && yOk;
 }
