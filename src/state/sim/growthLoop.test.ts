@@ -1,7 +1,7 @@
 // PHASE 2A growth loop tests: weekly simulation, growth, songs, releases, career and repeat shows.
 import { describe, expect, it } from 'vitest';
 
-import { CHARACTERS, PROTOTYPE_BALANCE, RELEASE_FORMATS, VENUES } from '@/data/master';
+import { ACTIVITIES, CHARACTERS, PROTOTYPE_BALANCE, RELEASE_FORMATS, VENUES } from '@/data/master';
 import { createNewGame } from '@/state/save/newGame';
 import type { SaveData } from '@/state/save/schema';
 import { simulateWeek, weeklyMusicIncome, buildLiveOffers } from './weekEngine';
@@ -89,6 +89,18 @@ describe('activities have distinct effects', () => {
     expect(rest.members[0].experience).toBe(0);
     expect(promo.fansDelta).toBeGreaterThan(0);
     expect(practice.fansDelta).toBe(0);
+  });
+
+  it('charges nothing extra for basic practice, but still trains', () => {
+    const practice = ACTIVITIES.find((a) => a.scope === 'BAND' && a.id === 'PRACTICE')!;
+    expect(practice.cost).toBe(0);
+
+    const s = band();
+    const idle = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['REST', null, null], individualActions: [] } });
+    const trained = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PRACTICE', 'PRACTICE', 'PRACTICE'], individualActions: [] } });
+    // three practice slots cost exactly what an empty week costs: salaries and session fees only
+    expect(trained.expense).toBe(idle.expense);
+    expect(trained.members[0].experience).toBeGreaterThan(0);
   });
 
   it('an individual lesson only trains the chosen member', () => {

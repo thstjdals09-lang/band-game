@@ -72,7 +72,8 @@ export const CORE_LINEUP_SLOTS: SlotId[] = ['VOCAL', 'GUITAR', 'BASS', 'DRUMS'];
 // IA v1.1 §15: Main Action 예: Practice / Promotion / Recording / Rest / Live Show.
 // Individual Action 예: 개인 레슨 / 휴식 / 인터뷰. TODO(balance): cost values are placeholders.
 export const ACTIVITIES: ActivityDefinition[] = [
-  { id: 'PRACTICE', scope: 'BAND', name: '합주 연습', cost: 30000, summary: '함께 맞춰보며 곡을 다듬는다.', affects: ['합주 완성도', '곡 진행'] },
+  // 기본 합주·연습은 연습실에서 하는 일이라 별도 비용이 붙지 않는다 (운영비에만 포함).
+  { id: 'PRACTICE', scope: 'BAND', name: '합주 연습', cost: 0, summary: '함께 맞춰보며 곡을 다듬는다.', affects: ['합주 완성도', '곡 진행'] },
   { id: 'PROMOTION', scope: 'BAND', name: '홍보', cost: 80000, summary: '공연과 밴드를 알린다.', affects: ['팬', '인지도'] },
   { id: 'RECORDING', scope: 'BAND', name: '녹음', cost: 150000, summary: '곡을 음원으로 남긴다.', affects: ['곡 진행', '음원'] },
   { id: 'REST', scope: 'BAND', name: '휴식', cost: 0, summary: '한 주를 쉬어간다.', affects: ['체력', '멘탈'] },
