@@ -116,7 +116,8 @@ GDD 대조 보고서에서 확인된 구현 오류 3건만 수정. 밸런스 수
 - **규칙 5 — 주간 확정**: 예약과 대상은 주간 진행 시작 시점의 계획으로 확정되고, 같은 주에 만든 곡은 그 주의 합주·녹음 대상이 될 수 없다.
 - SaveData 추가(가산적): `SongState.recordedWeek` / `SongState.rehearsalCount`, `WeeklyPlan.songWork { newSong, rehearsalSongId, recordingSongId }`. `ensureSaveDefaults`가 구형 세이브를 채우며 **이미 발매된 구형 곡은 녹음 완료로 간주**한다. schemaVersion 유지.
 - 수치 변경 없음: 합주·녹음 경험치/컨디션, 녹음 비용 ₩150,000, 발매 보상, 기본 합주 비용 0원 모두 그대로다.
-- 검수: 단위 테스트 102개 + 브라우저 6종(`songwork` 신규 / `smoke` / `phase2a` / `compat` / `practicecost` / `showslot`) 통과. 휴식 포함 일정에서 **첫 공연까지 5주**.
+- **확정 명세 전문 수령 후 보완(같은 날)**: 예약·합주 대상이 주가 바뀌어도 유지되도록 `commitWeek`에서 이월, 발매곡도 합주 대상 가능, 두 번째 녹음 슬롯과 대상 없는 녹음 슬롯은 **배치 자체를 차단**, 실행되지 않은 녹음은 컨디션 효과도 없음, EP는 별도 표시 없이 "녹음 완료된 미발매 곡 3개"로 성립("EP까지 모은다"는 우선순위 표시로만 남김).
+- 검수: 단위 테스트 107개 + 브라우저 6종(`songwork` 신규 / `smoke` / `phase2a` / `compat` / `practicecost` / `showslot`) 통과. 휴식 포함 일정에서 **첫 공연까지 5주**.
 
 ## 판단 필요 / TODO (문서에 없거나 모호한 항목)
 

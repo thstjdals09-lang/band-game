@@ -119,8 +119,12 @@ export function ScheduleScreen() {
               const live = a.id === 'LIVE_SHOW';
               const recording = a.id === 'RECORDING';
               const locked = !activityUnlocked(save, a.id);
-              const noDemoToRecord = recording && work.recordingOptions.length === 0;
-              const disabled = (live && !save.pendingPerformance) || locked || noDemoToRecord;
+              // 명세 §4: 대상이 없으면 녹음 슬롯 자체를 배치할 수 없고, 두 번째 녹음도 배치할 수 없다.
+              const slotIndex = Number(pick.split(':')[1]);
+              const recordingElsewhere = recording
+                && save.weeklyPlan.mainActions.some((x, i) => i !== slotIndex && x === 'RECORDING');
+              const noRecordingTarget = recording && !work.recordingTarget;
+              const disabled = (live && !save.pendingPerformance) || locked || recordingElsewhere || noRecordingTarget;
               return (
                 <button
                   key={a.id}
@@ -132,10 +136,11 @@ export function ScheduleScreen() {
                     <div className="rowcard__title">{a.name}</div>
                     <div className="rowcard__meta">
                       {locked ? '녹음실을 지어야 한다'
-                        : noDemoToRecord ? '녹음할 데모가 없다'
-                          : live && !save.pendingPerformance ? '예정된 공연이 없다'
-                            : recording ? '곡 화면에서 녹음할 곡을 고른다 · 주 1회'
-                              : a.summary}
+                        : recordingElsewhere ? '이번 주 녹음은 이미 잡혀 있다'
+                          : noRecordingTarget ? (work.recordingOptions.length === 0 ? '녹음할 데모가 없다' : '곡 화면에서 녹음할 곡을 먼저 고른다')
+                            : live && !save.pendingPerformance ? '예정된 공연이 없다'
+                              : recording ? `${work.recordingTarget?.title}을(를) 녹음한다 · 주 1회`
+                                : a.summary}
                     </div>
                     <div className="tags mt8">{a.affects.map((x) => <Tag key={x} tone="mute">{x}</Tag>)}</div>
                   </span>

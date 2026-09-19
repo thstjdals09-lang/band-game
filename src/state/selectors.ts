@@ -188,6 +188,9 @@ export function pendingVenueName(save: SaveData): string | null {
 export interface ReleaseReadiness {
   /** Music revenue opens only after the first show (GDD: 공연 -> 음원/앨범). */
   canRelease: boolean;
+  /** Recorded and not yet released: what a single or an EP can be built from. */
+  releasable: ReturnType<typeof songList>;
+  /** The songs an EP would carry right now. */
   epSongs: ReturnType<typeof songList>;
   /** Marked for the EP but still unrecorded, so not usable yet. */
   epWaiting: ReturnType<typeof songList>;
@@ -196,14 +199,21 @@ export interface ReleaseReadiness {
 
 export function releaseReadiness(save: SaveData): ReleaseReadiness {
   const canRelease = unlockedRevenueStreams(save).includes('MUSIC');
-  // v1 규칙 4: only a recorded song can go out, so an EP is built from recorded songs only.
-  const epSongs = songList(save).filter((s) => s.status === 'SAVED_FOR_EP' && isRecorded(s));
+  // 명세 §5: 싱글 = 녹음 완료된 미발매 곡 1개, EP = 3개. 별도의 표시 작업을 요구하지 않는다.
+  const releasable = songList(save).filter((s) => isRecorded(s) && !isReleased(s.status));
+  // "EP까지 모은다"로 표시해 둔 곡이 있으면 그 곡부터 싣는다 (선호일 뿐, 조건은 아니다).
+  const preferred = [...releasable].sort(
+    (a, b) => Number(b.status === 'SAVED_FOR_EP') - Number(a.status === 'SAVED_FOR_EP'),
+  );
+  const need = RELEASE_FORMATS.EP.songsRequired;
+  // 녹음만 남은 EP 후보: 표시는 해 뒀지만 아직 녹음 전인 곡.
   const epWaiting = songList(save).filter((s) => s.status === 'SAVED_FOR_EP' && !isRecorded(s));
   return {
     canRelease,
-    epSongs,
+    releasable,
+    epSongs: preferred.slice(0, need),
     epWaiting,
-    canReleaseEp: canRelease && epSongs.length >= RELEASE_FORMATS.EP.songsRequired,
+    canReleaseEp: canRelease && releasable.length >= need,
   };
 }
 

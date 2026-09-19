@@ -11,7 +11,7 @@ import { firstEmptyCompatibleSlotIndex } from '../selectors';
 import { achievedMilestones, careerTierFor } from '../sim/career';
 import { clampCondition, grantExperience, stageForExperience } from '../sim/growth';
 import type { WeekOutcome } from '../sim/weekEngine';
-import { EMPTY_SONG_WORK, isRecorded, isReleased } from '../save/schema';
+import { isRecorded, isReleased } from '../save/schema';
 import type { CareerTier, LineupAssignment, PerformanceSnapshot, RevealKey, SaveData, SongStatus } from '../save/schema';
 
 const B = PROTOTYPE_BALANCE;
@@ -132,13 +132,15 @@ export const bandActions = {
 export const scheduleActions = {
   setMainAction(index: number, actionId: MainActionId | null) {
     update((d) => {
-      // v1 규칙 3: at most one recording slot a week.
+      // 명세 §4: 한 주에 녹음 슬롯은 하나뿐이고, 두 번째는 아예 배치할 수 없다.
+      // (화면에서도 잠기지만, 계획을 바꾸는 유일한 통로인 여기서도 막는다.)
+      if (actionId === 'RECORDING' && d.weeklyPlan.mainActions.some((a, i) => i !== index && a === 'RECORDING')) return;
+      // 녹음 대상이 없으면 녹음 슬롯 자체를 배치하지 않는다.
       if (actionId === 'RECORDING') {
-        d.weeklyPlan.mainActions = d.weeklyPlan.mainActions.map((a, i) => (i !== index && a === 'RECORDING' ? null : a));
+        const target = d.weeklyPlan.songWork.recordingSongId ? d.songs[d.weeklyPlan.songWork.recordingSongId] : null;
+        if (!target || isRecorded(target) || isReleased(target.status) || !d.facilities.RECORDING_ROOM?.built) return;
       }
       d.weeklyPlan.mainActions[index] = actionId;
-      // Dropping the last recording slot drops its target with it.
-      if (!d.weeklyPlan.mainActions.includes('RECORDING')) d.weeklyPlan.songWork.recordingSongId = null;
     });
   },
   /** Book (or cancel) new-song work for this week, from the Songs screen (v1 규칙 1). */
@@ -251,7 +253,25 @@ export const scheduleActions = {
 
       d.world.week += 1;
       if (d.world.week > 52) { d.world.week = 1; d.world.year += 1; }
-      d.weeklyPlan = { mainActions: [null, null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } };
+      // 명세 §2·§3: 예약과 합주 대상은 주가 바뀌어도 남는다.
+      //  - 새 곡 작업: 데모가 나왔을 때만 소모되고, 합주가 없던 주에는 그대로 유지된다.
+      //  - 합주 대상: 플레이어가 고른 곡은 매주 다시 지정할 필요가 없다.
+      //  - 녹음 대상: 녹음이 끝나면 비우고, 아직 녹음할 수 있는 곡이면 남겨 둔다.
+      const carried = d.weeklyPlan.songWork;
+      const recordingStillOpen = carried.recordingSongId
+        && !outcome.recording
+        && d.songs[carried.recordingSongId]
+        && !isRecorded(d.songs[carried.recordingSongId])
+        && !isReleased(d.songs[carried.recordingSongId].status);
+      d.weeklyPlan = {
+        mainActions: [null, null, null],
+        individualActions: [],
+        songWork: {
+          newSong: carried.newSong && !outcome.newSong,
+          rehearsalSongId: carried.rehearsalSongId && d.songs[carried.rehearsalSongId] ? carried.rehearsalSongId : null,
+          recordingSongId: recordingStillOpen ? carried.recordingSongId : null,
+        },
+      };
       d.rng.streams.world += 1;
 
       syncCareer(d);

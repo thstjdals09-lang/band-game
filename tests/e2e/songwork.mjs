@@ -25,7 +25,8 @@ async function setSlot(i, name) {
   await page.goto(BASE + '#/schedule');
   await page.waitForSelector('.actionslot');
   await page.locator('.actionslot').nth(i).click();
-  await page.waitForSelector('.sheet .rowcard');
+  await page.waitForSelector('.sheet');
+  if (name === null) { await tapText('이 칸 비우기'); await page.waitForTimeout(200); return; }
   await page.locator('.sheet .rowcard')
     .filter({ has: page.locator('.rowcard__title', { hasText: new RegExp(`^${name}$`) }) }).first().click();
   await page.waitForTimeout(220);
@@ -207,32 +208,46 @@ try {
   await expect(await page.locator('.world[data-stage="2"]').count() === 1, 'Stage 2 전환 유지');
 
   // ================================================================ 규칙 3: 녹음
-  await setSlot(0, '녹음');
-  await setSlot(1, '합주 연습');
-  const sv1 = await save();
-  await expect(sv1.weeklyPlan.mainActions.filter((a) => a === 'RECORDING').length === 1, '녹음 슬롯은 1칸이다');
-  await setSlot(2, '녹음');
-  const sv2 = await save();
-  await expect(sv2.weeklyPlan.mainActions.filter((a) => a === 'RECORDING').length === 1,
-    '두 번째 녹음을 넣으면 이전 녹음 칸이 비워진다 (주 1회)');
-
-  // 대상 없이 진행하면 비용도 청구되지 않는다
+  // 명세 §4: 대상이 없으면 녹음 슬롯 자체를 배치할 수 없다
   await page.goto(BASE + '#/schedule');
   await page.waitForSelector('.actionslot');
-  await expect((await text()).includes('녹음할 곡을 고르지 않았다'), '대상을 고르지 않으면 경고한다');
-  const beforeIdleRec = await save();
-  await runWeek();
-  const afterIdleRec = await save();
-  await expect(recorded(afterIdleRec).length === 0, '대상 없는 녹음은 아무 곡도 녹음하지 않는다');
-  const idleCharged = beforeIdleRec.economy.cash - afterIdleRec.economy.cash;
-  const salaries = afterIdleRec.band.activeMembers.reduce((a, id) => a + (afterIdleRec.contracts[id]?.salary ?? 0), 0);
-  await expect(idleCharged === salaries, `대상 없는 녹음은 비용도 청구하지 않는다 (${idleCharged} = 주급 ${salaries})`);
+  await page.locator('.actionslot').nth(0).click();
+  await page.waitForSelector('.sheet .rowcard');
+  const recRow = page.locator('.sheet .rowcard')
+    .filter({ has: page.locator('.rowcard__title', { hasText: /^녹음$/ }) }).first();
+  await expect(await recRow.isDisabled(), '녹음 대상이 없으면 녹음 슬롯을 배치할 수 없다');
+  await expect((await recRow.innerText()).includes('먼저 고른다'), '먼저 곡을 고르라고 안내한다');
+  await tapText('이 칸 비우기');
 
-  // 실제 녹음
+  const payroll = await save();
+  const salaries = payroll.band.activeMembers.reduce((a, id) => a + (payroll.contracts[id]?.salary ?? 0), 0);
+
+  // 대상을 고른 뒤에야 배치할 수 있다
   const target = songs(await save()).find((s) => typeof s.recordedWeek !== 'number');
   await songs_screen();
   await songCardBtn(target.title, '이번 주에 녹음한다');
   await setSlot(0, '녹음');
+  const sv1 = await save();
+  await expect(sv1.weeklyPlan.mainActions[0] === 'RECORDING', '대상을 고르면 녹음을 배치할 수 있다');
+
+  // 두 번째 녹음 슬롯은 배치되지 않는다 (앞 칸도 그대로 남는다)
+  await page.goto(BASE + '#/schedule');
+  await page.waitForSelector('.actionslot');
+  await page.locator('.actionslot').nth(2).click();
+  await page.waitForSelector('.sheet .rowcard');
+  const recRow2 = page.locator('.sheet .rowcard')
+    .filter({ has: page.locator('.rowcard__title', { hasText: /^녹음$/ }) }).first();
+  await expect(await recRow2.isDisabled(), '두 번째 녹음 슬롯은 배치할 수 없다');
+  await expect((await recRow2.innerText()).includes('이미 잡혀'), '이미 잡힌 녹음이라고 알려준다');
+  await tapText('이 칸 비우기');
+
+  // 나머지 슬롯은 자유롭게 쓴다
+  await setSlot(1, '합주 연습');
+  await setSlot(2, '휴식');
+  const sv2 = await save();
+  await expect(sv2.weeklyPlan.mainActions.filter((a) => a === 'RECORDING').length === 1
+    && sv2.weeklyPlan.mainActions.includes('PRACTICE') && sv2.weeklyPlan.mainActions.includes('REST'),
+    '녹음 1칸 + 나머지 2칸은 자유롭게 배치된다');
   const beforeRec = await save();
   const recCards = await runWeek();
   const afterRec = await save();
@@ -256,6 +271,44 @@ try {
   await expect(!!single, '싱글이 발매됐다');
   await expect(afterSingle.songs[target.id].status === 'RELEASED_SINGLE', '싱글로 기록된다');
 
+  // ================================================================ 예약·대상 유지 (명세 §2·§3)
+  // ---- 명세 §2: 합주가 없는 주에는 예약이 유지된다
+  await bookNewSong();
+  await setSlot(0, '휴식');
+  await setSlot(1, '홍보');
+  await setSlot(2, null);
+  const beforeKeep = await save();
+  await expect(beforeKeep.weeklyPlan.songWork.newSong === true, '합주 없는 주에 예약을 걸어둔다');
+  await runWeek();
+  const afterKeep = await save();
+  await expect(songs(afterKeep).length === songs(beforeKeep).length, '합주가 없으면 데모도 나오지 않는다');
+  await expect(afterKeep.weeklyPlan.songWork.newSong === true, '합주가 없던 주를 지나도 예약은 유지된다');
+
+  // 명세 §3: 한 번 고른 합주 대상은 다음 주에도 남는다
+  await songs_screen();
+  const pinTitle = songs(await save()).find((x) => x.id !== opening).title;
+  await songCardBtn(pinTitle, '합주로 무대를 다듬는다');
+  const pinnedId = (await save()).weeklyPlan.songWork.rehearsalSongId;
+  await setSlot(0, '휴식');
+  await setSlot(1, null);
+  await runWeek();
+  await expect((await save()).weeklyPlan.songWork.rehearsalSongId === pinnedId,
+    '고른 합주 대상은 매주 다시 지정하지 않아도 유지된다');
+  await songs_screen();
+  await tapText('대표곡을 따라가게 되돌리기');
+
+
+  // 명세 §5: 발매한 곡도 계속 합주할 수 있다
+  await songs_screen();
+  const relCardEarly = page.locator('.rowcard--stack')
+    .filter({ has: page.locator('.rowcard__title', { hasText: new RegExp(`^${target.title}$`) }) }).first();
+  await expect(await relCardEarly.locator('.btn', { hasText: '합주로 무대를 다듬는다' }).count() === 1,
+    '발매한 곡도 합주 대상으로 고를 수 있다');
+  await songCardBtn(target.title, '합주로 무대를 다듬는다');
+  await expect((await save()).weeklyPlan.songWork.rehearsalSongId === target.id, '발매곡이 합주 대상이 된다');
+  await songs_screen();
+  await tapText('대표곡을 따라가게 되돌리기');
+
   // ================================================================ EP: 녹음한 곡 3개
   while (recorded(await save()).filter((s) => !String(s.status).startsWith('RELEASED')).length < 3) {
     const sv = await save();
@@ -273,10 +326,9 @@ try {
     }
     await runWeek();
   }
-  const ready = recorded(await save()).filter((s) => !String(s.status).startsWith('RELEASED')).slice(0, 3);
+  // 명세 §5: 별도 표시 작업 없이 "녹음 완료된 미발매 곡 3개"면 EP를 낼 수 있다
   await songs_screen();
-  for (const s of ready) await songCardBtn(s.title, 'EP까지 모은다');
-  await songs_screen();
+  await expect((await text()).includes('낼 수 있는 음원 3/3'), '녹음된 미발매 곡 3개가 모이면 EP 조건이 찬다');
   await tapText('EP로 낸다');
   await page.waitForTimeout(350);
   const afterEp = await save();

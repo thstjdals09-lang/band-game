@@ -101,7 +101,8 @@ function energyFactor(id: CharacterId): number {
  * Only songs that already existed before this week can be a target (v1 규칙 5).
  */
 export function resolveRehearsalTarget(save: SaveData): SongState | null {
-  const playable = Object.values(save.songs).filter((s) => !isReleased(s.status));
+  // 명세 §3·§5: 녹음·발매 여부와 관계없이 보유 곡은 무엇이든 합주할 수 있다.
+  const playable = Object.values(save.songs);
   if (playable.length === 0) return null;
   const chosen = save.weeklyPlan.songWork.rehearsalSongId
     ? playable.find((s) => s.id === save.weeklyPlan.songWork.rehearsalSongId)
@@ -153,12 +154,16 @@ export function simulateWeek(save: SaveData): WeekOutcome {
     });
   });
 
+  // 명세 §4: 실행 가능한 녹음 1회에 대해서만 비용과 컨디션 효과를 적용한다.
+  const recording = resolveRecording(save);
+
   // A show is not a generic activity: its fatigue, experience and cost are applied by the
   // performance when it is actually played, so the slot alone changes nothing here.
   actions.forEach((action, index) => {
     const def = activityDef(action);
     const fx = B.activityEffects[action as keyof typeof B.activityEffects];
     if (!def || !fx) return;
+    if (action === 'RECORDING' && !recording) return; // 실행되지 않은 녹음은 지치게 하지도 않는다
     if (action === 'LIVE_SHOW') {
       const snap = [...save.performanceHistory].reverse().find((p) => p.week === week);
       log.push(snap
@@ -298,7 +303,6 @@ export function simulateWeek(save: SaveData): WeekOutcome {
   }
 
   // ---------------------------------------------------------------- recording (v1 규칙 3)
-  const recording = resolveRecording(save);
   if (recording) {
     log.push({
       kind: 'SONG', title: `녹음 완료 · ${recording.title}`,

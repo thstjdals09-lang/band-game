@@ -106,11 +106,11 @@ export function SongsScreen() {
         </Section>
       )}
 
-      {ready.epSongs.length > 0 && (
-        <Section title={ready.epWaiting.length > 0 ? '녹음을 마친 EP 후보' : 'EP 준비'}>
+      {ready.releasable.length > 0 && (
+        <Section title="EP 준비">
           <div className="rowcard rowcard--stack">
             <div className="row row--between">
-              <span className="rowcard__title">모아둔 곡 {ready.epSongs.length}/{RELEASE_FORMATS.EP.songsRequired}</span>
+              <span className="rowcard__title">낼 수 있는 음원 {ready.releasable.length}/{RELEASE_FORMATS.EP.songsRequired}</span>
               <Tag tone={ready.canReleaseEp ? 'ok' : 'mute'}>{ready.canReleaseEp ? '발매 가능' : '더 필요'}</Tag>
             </div>
             <div className="rowcard__meta mt8">{ready.epSongs.map((x) => x.title).join(' · ')}</div>
@@ -172,37 +172,38 @@ export function SongsScreen() {
               <StatBar label="라이브" value={s.musicProfile.liveFit} />
             </div>
 
+            <Section title="이번 주에 이 곡으로" tight>
+              <div className="col" style={{ gap: 6 }}>
+                {/* 명세 §3·§5: 발매한 곡도 계속 합주할 수 있다. */}
+                <Btn
+                  size="sm"
+                  variant={rehearsing && work.rehearsalPinned ? 'primary' : 'secondary'}
+                  full
+                  onClick={() => scheduleActions.setRehearsalSong(rehearsing && work.rehearsalPinned ? null : s.id)}
+                >
+                  {rehearsing && work.rehearsalPinned ? '합주 대상 해제' : '합주로 무대를 다듬는다'}
+                </Btn>
+                {!recorded && !released && (
+                  <Btn
+                    size="sm"
+                    variant={recordingHere ? 'primary' : 'secondary'}
+                    full
+                    disabled={!work.recordingRoom}
+                    onClick={() => scheduleActions.setRecordingSong(recordingHere ? null : s.id)}
+                  >
+                    {!work.recordingRoom
+                      ? '녹음실을 지어야 한다'
+                      : recordingHere ? '녹음 대상 해제' : '이번 주에 녹음한다'}
+                  </Btn>
+                )}
+              </div>
+              {recordingHere && !work.recordingSlot && (
+                <Notice tone="warn">일정에 녹음을 넣어야 이번 주에 녹음된다.</Notice>
+              )}
+            </Section>
+
             {!released && (
               <>
-                <Section title="이번 주에 이 곡으로" tight>
-                  <div className="col" style={{ gap: 6 }}>
-                    <Btn
-                      size="sm"
-                      variant={rehearsing && work.rehearsalPinned ? 'primary' : 'secondary'}
-                      full
-                      onClick={() => scheduleActions.setRehearsalSong(rehearsing && work.rehearsalPinned ? null : s.id)}
-                    >
-                      {rehearsing && work.rehearsalPinned ? '합주 대상 해제' : '합주로 무대를 다듬는다'}
-                    </Btn>
-                    {!recorded && (
-                      <Btn
-                        size="sm"
-                        variant={recordingHere ? 'primary' : 'secondary'}
-                        full
-                        disabled={!work.recordingRoom}
-                        onClick={() => scheduleActions.setRecordingSong(recordingHere ? null : s.id)}
-                      >
-                        {!work.recordingRoom
-                          ? '녹음실을 지어야 한다'
-                          : recordingHere ? '녹음 대상 해제' : '이번 주에 녹음한다'}
-                      </Btn>
-                    )}
-                  </div>
-                  {recordingHere && !work.recordingSlot && (
-                    <Notice tone="warn">일정에 녹음을 넣어야 실제로 녹음된다.</Notice>
-                  )}
-                </Section>
-
                 <Section title="이 곡을 어떻게 할까" tight>
                   <div className="col" style={{ gap: 6 }}>
                     <Btn size="sm" variant={s.status === 'DEMO' ? 'primary' : 'secondary'} full onClick={() => songActions.setStatus(s.id, 'DEMO')}>데모로 둔다</Btn>

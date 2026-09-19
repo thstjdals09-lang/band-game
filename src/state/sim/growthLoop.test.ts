@@ -331,11 +331,26 @@ describe('v1 규칙 2: rehearsal that is not writing prepares a song', () => {
     expect(plainWeek.rehearsal?.slots).toBe(3);
   });
 
-  it('never rehearses a released song', () => {
+  it('still rehearses a song that has already been released (명세 §3·§5)', () => {
     const s = band();
-    s.songs.a = { ...song('A', 60), status: 'RELEASED_SINGLE' };
+    s.songs.a = { ...song('A', 60), status: 'RELEASED_SINGLE', recordedWeek: 1 };
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['PRACTICE', null, null]) });
+    expect(o.rehearsal?.songId).toBe('a');
+  });
+
+  it('applies member growth only when there is nothing to rehearse', () => {
+    const s = band();
     const o = simulateWeek({ ...s, weeklyPlan: plan(['PRACTICE', null, null]) });
     expect(o.rehearsal).toBeNull();
+    expect(o.members[0].experience).toBeGreaterThan(0);
+  });
+
+  it('the writing slot does not also raise live mastery', () => {
+    const s = band();
+    s.songs.a = song('A', 60);
+    const one = simulateWeek({ ...s, weeklyPlan: plan(['PRACTICE', null, null], { newSong: true }) });
+    expect(one.newSong).not.toBeNull();
+    expect(one.rehearsal).toBeNull();
   });
 
   it('cannot target the song written in the same week (v1 규칙 5)', () => {
@@ -377,6 +392,32 @@ describe('v1 규칙 3·4: recording turns a demo into a releasable master', () =
     const o = simulateWeek({ ...structuredClone(s), weeklyPlan: plan(['RECORDING', null, null], { recordingSongId: 'a' }) });
     const cost = ACTIVITIES.find((x) => x.scope === 'BAND' && x.id === 'RECORDING')!.cost ?? 0;
     expect(o.expense - idle.expense).toBe(cost);
+  });
+
+  it('costs nothing and tires nobody when it cannot run (명세 §4)', () => {
+    const s = withRoom();
+    const idle = simulateWeek({ ...structuredClone(s), weeklyPlan: plan([null, null, null]) });
+    const dead = simulateWeek({ ...structuredClone(s), weeklyPlan: plan(['RECORDING', null, null]) });
+    expect(dead.recording).toBeNull();
+    expect(dead.expense).toBe(idle.expense);
+    expect(dead.members[0].energy).toBe(0);
+    expect(dead.members[0].stress).toBe(0);
+    expect(dead.members[0].experience).toBe(0);
+  });
+
+  it('a real recording still tires the band', () => {
+    const s = withRoom();
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['RECORDING', null, null], { recordingSongId: 'a' }) });
+    expect(o.members[0].energy).toBeLessThan(0);
+    expect(o.members[0].experience).toBeGreaterThan(0);
+  });
+
+  it('rehearses and records different songs in the same week (명세 §6)', () => {
+    const s = withRoom();
+    s.songs.b = song('B', 60);
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['RECORDING', 'PRACTICE', null], { recordingSongId: 'a', rehearsalSongId: 'b' }) });
+    expect(o.recording?.songId).toBe('a');
+    expect(o.rehearsal?.songId).toBe('b');
   });
 
   it('refuses without the recording room', () => {
