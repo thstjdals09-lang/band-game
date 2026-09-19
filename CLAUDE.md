@@ -32,9 +32,13 @@
 ## 판단 필요 / TODO (문서에 없거나 모호한 항목)
 
 - ~~Growth Curve 표기~~ 승인됨(PHASE 1.1): C05 = HIGH_START_SLOW, C13 = HIGH_START.
-- ~~Lineup 슬롯 수~~ 해결(PHASE 1.1): 가변 슬롯 구조, VS 기본 core 4포지션. 남은 설계 판단: 동일 포지션 중복 슬롯 허용 여부, 추가 포지션 해금 조건(PHASE 2+).
+- ~~Lineup 슬롯 수~~ 해결(PHASE 1.1): 가변 슬롯 구조, VS 기본 core 4포지션. 추가 포지션 해금 조건은 PHASE 2+ 설계.
 - ~~SaveData 추가 필드~~ 승인됨(PHASE 1.1): SaveData v1 정식 prototype 필드, schemaVersion 유지.
-- **Synth / Producer → KEYS 슬롯 매핑**: 프로토타입 가정 (`SLOT_DEFINITIONS`).
+- **동일 포지션 중복 슬롯** (결정, PHASE 1.1 승인 시): 데이터 구조상 허용하되 Vertical Slice 초기 UI에서는 기본 core slots만 노출한다.
+- **Synth / Producer 슬롯 규칙** (결정, PHASE 1.1 승인 시 — 아직 코드 미반영, 다음 작업 지시 때 적용):
+  Synth는 KEYS 계열로 취급 가능. **Producer는 KEYS에 자동 매핑하지 않는다.** Producer는 별도 creative/production role이며,
+  stage slot 배치는 해당 캐릭터가 Keys/Synth 포지션을 보유할 때만 가능하다.
+  → 적용 시 `SLOT_DEFINITIONS.KEYS.compatiblePositions`에서 `'Producer'` 제거. 현재 15명 중 Producer 보유자는 C06 한예준(Keys / Producer)뿐이라 Keys로 KEYS 배치는 계속 가능하고, C13 나유안(Multi)은 Multi 규칙을 따른다. Producer의 creative/production role 시스템은 PHASE 2+.
 - **밸런스 전부 TODO(balance)**: 시작 자금/Fans/Fame, 계약 금액, 시설 가격, 세션 비용, 공연 수익 등은 `prototypeBalance.ts` 및 각 master 파일의 placeholder. Hero HUD 값은 Source of Truth가 아니다.
 - **밴드 이름 이벤트**: IA §26의 "멤버 성향 기반 이름 제안"은 이후 구현. 현재 placeholder 칩 + 자유 입력(승인됨).
 - ~~첫 공연 곡 수~~ 해결(PHASE 1.1): 2곡 확보 후 공연 제안. 창작 주간당 1곡 템포는 플레이테스트 변수.
