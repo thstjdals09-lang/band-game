@@ -23,6 +23,9 @@ export const PROTOTYPE_BALANCE = {
      * 밸런스 변화는 없다. TODO(balance)
      */
     acceptSalaryRatio: 0.75,
+    /** 화면 문구용. 실제 판정값은 CONTRACT_V1_PROVISIONAL에 있다. */
+    starterRecentShows: 4,
+    starterAllowedAbsences: 1,
     durationOptionsWeeks: [26, 52, 104] as const, // TODO(balance)
     initialSatisfaction: 70, // TODO(balance)
   },

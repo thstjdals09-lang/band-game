@@ -10,6 +10,7 @@ import { useGameStore } from '../store';
 import { firstEmptyCompatibleSlotIndex } from '../selectors';
 import { achievedMilestones, careerTierFor } from '../sim/career';
 import { clampCondition, grantExperience, stageForExperience } from '../sim/growth';
+import { absoluteWeek, acceptsTerms, nearestDurationOption, renewalOpen, settleContracts } from '../sim/contract';
 import type { WeekOutcome } from '../sim/weekEngine';
 import { isRecorded, isReleased } from '../save/schema';
 import type { CareerTier, LineupAssignment, PerformanceSnapshot, RevealKey, SaveData, SongStatus } from '../save/schema';
@@ -62,9 +63,12 @@ export const auditionActions = {
       if (cs) { cs.worldStatus = 'PLAYER_MEMBER'; cs.joinedWeek = week; }
       if (!d.band.activeMembers.includes(id)) d.band.activeMembers.push(id);
       const profile = CONTRACT_PROFILES[CHARACTERS[id].contractProfileId];
+      // 계약 주차는 절대 주차로 기록한다 (연도를 넘어가도 주수가 어긋나지 않는다).
+      const abs = absoluteWeek(d.world);
       d.contracts[id] = {
-        characterId: id, salary: terms.salary, startWeek: week, endWeek: week + terms.durationWeeks,
+        characterId: id, salary: terms.salary, startWeek: abs, endWeek: abs + terms.durationWeeks - 1,
         rolePromise: terms.rolePromise, clauses: profile?.clauses ?? [], satisfaction: B.contract.initialSatisfaction,
+        renewal: null, pendingChange: null,
       };
       const idx = firstEmptyCompatibleSlotIndex(d, id);
       if (idx >= 0) d.band.lineup[idx].assignment = { kind: 'MEMBER', characterId: id };
@@ -253,6 +257,7 @@ export const scheduleActions = {
 
       d.world.week += 1;
       if (d.world.week > 52) { d.world.week = 1; d.world.year += 1; }
+      settleContracts(d);
       // 명세 §2·§3: 예약과 합주 대상은 주가 바뀌어도 남는다.
       //  - 새 곡 작업: 데모가 나왔을 때만 소모되고, 합주가 없던 주에는 그대로 유지된다.
       //  - 합주 대상: 플레이어가 고른 곡은 매주 다시 지정할 필요가 없다.
@@ -382,6 +387,50 @@ export const opportunityActions = {
   },
   decline(id: string) { update((d) => { const o = d.opportunities[id]; if (o) o.status = 'DECLINED'; }); },
   later(id: string) { update((d) => { const o = d.opportunities[id]; if (o) o.status = 'LATER'; }); },
+};
+
+// ---------------------------------------------------------------- Contract (V1)
+export const contractActions = {
+  /**
+   * 재계약 (CONTRACT V1 §3). 기존 계약은 끝까지 기존 조건으로 유지되고,
+   * 새 계약은 기존 계약이 끝난 다음 주부터 시작한다.
+   */
+  renew(characterId: CharacterId, terms: { salary: number; durationWeeks: number; rolePromise: 'CORE_MEMBER' | 'SUPPORT_MEMBER' }) {
+    update((d) => {
+      const c = d.contracts[characterId];
+      if (!c) return;
+      if (!renewalOpen(c, d.world)) return;               // 마지막 구간에서만 열린다
+      if (!acceptsTerms(characterId, terms)) return;       // 판정을 통과한 조건만 저장한다
+      c.renewal = { ...terms };
+      d.careerHistory.push({
+        week: d.world.week, type: 'CONTRACT',
+        text: `${CHARACTERS[characterId].name} 재계약 합의 (${c.endWeek + 1}주차부터)`,
+      });
+    });
+  },
+  cancelRenewal(characterId: CharacterId) {
+    update((d) => { const c = d.contracts[characterId]; if (c) c.renewal = null; });
+  },
+  /**
+   * 계약 중 역할 변경 (CONTRACT V1 §5). 새 조건으로 다시 합의해야 하고, 다음 주부터 적용된다.
+   * 계약 만료일은 그대로 유지한다.
+   */
+  changeRole(characterId: CharacterId, terms: { salary: number; rolePromise: 'CORE_MEMBER' | 'SUPPORT_MEMBER' }) {
+    update((d) => {
+      const c = d.contracts[characterId];
+      if (!c) return;
+      const remaining = c.endWeek - absoluteWeek(d.world) + 1;
+      // 남은 기간을 그대로 두고 같은 판정을 다시 통과해야 한다.
+      if (!acceptsTerms(characterId, { ...terms, durationWeeks: nearestDurationOption(remaining) })) return;
+      c.pendingChange = { salary: terms.salary, rolePromise: terms.rolePromise, effectiveWeek: absoluteWeek(d.world) + 1 };
+    });
+  },
+  /** 약속을 지킬 수 있는 편성이 없어 공연을 허용한 경우의 기록 (CONTRACT V1 §4-B). */
+  recordStarterException(characterId: CharacterId, text: string) {
+    update((d) => {
+      d.contractExceptions.push({ week: d.world.week, characterId, kind: 'STARTER_PROMISE_UNMEETABLE', text });
+    });
+  },
 };
 
 // ---------------------------------------------------------------- Performance

@@ -94,7 +94,7 @@ function playDebutShow() {
   const audience = Math.min(venue.capacity, B.baseAudience + Math.round(s.band.metrics.fans * B.audiencePerFan));
   performanceActions.commit({
     venueId: venue.id, venueName: venue.name,
-    lineup: lineup.map((x) => ({ slot: x.slot, label: x.displayName ?? '' })),
+    lineup: lineup.map((x) => ({ slot: x.slot, label: x.displayName ?? '', characterId: x.characterId ?? null })),
     openingSongTitle: songs[0].title,
     audience, grade: 'GOOD SHOW',
     revenue: audience * B.ticketRevenue,

@@ -8,6 +8,7 @@ import {
 import { isRecorded, isReleased } from './save/schema';
 import type { LineupAssignment, SaveData, SongState } from './save/schema';
 import { unlockedRevenueStreams } from './sim/career';
+import { starterViolations } from './sim/contract';
 import { recordingCandidates, resolveRecording, resolveRehearsalTarget } from './sim/weekEngine';
 
 export type Grade = 'GREAT' | 'GOOD' | 'FAIR' | 'POOR' | '—';
@@ -261,6 +262,43 @@ export function liveShowScheduled(save: SaveData): boolean {
 /** A show has already been played in the current week, so the slot is spent. */
 export function playedShowThisWeek(save: SaveData): boolean {
   return save.performanceHistory.some((p) => p.week === save.world.week);
+}
+
+// ---- 주전 기용 약속 (CONTRACT V1 §4) ----------------------------------------------------
+export interface StarterCheck {
+  violations: ReturnType<typeof starterViolations>;
+  /** 어긴 약속을 지킬 수 있는 편성이 실제로 존재하는가. */
+  fixable: { characterId: CharacterId; slotLabel: string }[];
+  /** 지금 구조로는 약속을 지킬 편성이 없는 경우 (CONTRACT V1 §4-B 예외). */
+  unmeetable: CharacterId[];
+}
+
+/** 이번 공연을 지금 라인업으로 치를 때의 주전 기용 약속 상태. */
+export function starterCheck(save: SaveData): StarterCheck {
+  const performers = save.band.lineup
+    .map((s) => (s.assignment?.kind === 'MEMBER' ? s.assignment.characterId : null))
+    .filter((id): id is CharacterId => !!id);
+  const violations = starterViolations(save, performers);
+
+  const fixable: { characterId: CharacterId; slotLabel: string }[] = [];
+  const unmeetable: CharacterId[] = [];
+  violations.forEach((v) => {
+    // 이미 무대에 서 있다면 편성 문제가 아니다 (과거 결장 누적).
+    if (performers.includes(v.characterId)) { unmeetable.push(v.characterId); return; }
+    const slot = save.band.lineup.find((x, i) => {
+      void x;
+      return i === firstEmptyCompatibleSlotIndex(save, v.characterId);
+    });
+    // 빈 칸이 없으면 세션이나 다른 멤버가 쓰고 있는 칸을 비워 만들 수 있는지 본다.
+    const takeable = save.band.lineup.find((x) => {
+      const def = SLOT_DEFINITIONS[x.slotId];
+      return def && CHARACTERS[v.characterId].positions.some((p) => def.compatiblePositions.includes(p));
+    });
+    const target = slot ?? takeable;
+    if (target) fixable.push({ characterId: v.characterId, slotLabel: SLOT_DEFINITIONS[target.slotId]?.label ?? target.slotId });
+    else unmeetable.push(v.characterId);
+  });
+  return { violations, fixable, unmeetable };
 }
 
 export function conditionWord(v: number): string {

@@ -2,7 +2,9 @@
 // 첫 공연은 Opening Song 선택만. Full Setlist Editor는 이후 기능.
 import { CHARACTERS, VENUES } from '@/data/master';
 import { useSave } from '@/state/store';
-import { conditionWord, debutSongRequirement, lineupView, liveShowScheduled, playedShowThisWeek, songList } from '@/state/selectors';
+import { conditionWord, debutSongRequirement, lineupView, liveShowScheduled, playedShowThisWeek, songList, starterCheck } from '@/state/selectors';
+import { CHARACTERS as ALL_CHARACTERS } from '@/data/master';
+import { contractActions } from '@/state/actions';
 import { preparedness } from '@/state/sim/performance';
 import { performanceActions } from '@/state/actions';
 import { useGameNav } from '@/app/navigation';
@@ -29,7 +31,10 @@ export function PerformancePrepScreen() {
   // A show is a weekly activity: it takes one of the three band slots (IA §15).
   const scheduled = liveShowScheduled(save);
   const alreadyPlayed = playedShowThisWeek(save);
-  const canStart = req.met && !!pending.openingSongId && lineup.length > 0 && scheduled && !alreadyPlayed;
+  // CONTRACT V1 §4: 지금 편성으로 주전 기용 약속을 어기게 되는지 미리 계산한다.
+  const starters = starterCheck(save);
+  const blocked = starters.fixable.length > 0; // 지킬 수 있는 편성이 있으면 이 편성으로는 못 나간다
+  const canStart = req.met && !!pending.openingSongId && lineup.length > 0 && scheduled && !alreadyPlayed && !blocked;
   const ready = preparedness(save);
   const openingSong = songs.find((s) => s.id === pending.openingSongId);
 
@@ -38,7 +43,20 @@ export function PerformancePrepScreen() {
       title="데뷔 쇼케이스"
       subtitle={`${venue?.name ?? pending.venueId} · 수용 ${venue?.capacity ?? '-'}명`}
       nav="back"
-      footer={<Btn variant="primary" size="lg" full disabled={!canStart} onClick={() => go('/performance/live')}>공연 시작</Btn>}
+      footer={(
+        <Btn
+          variant="primary" size="lg" full disabled={!canStart}
+          onClick={() => {
+            // 지킬 수 있는 편성이 없어 그대로 나가는 경우만 예외로 기록한다 (페널티는 붙이지 않는다).
+            starters.unmeetable.forEach((cidx) => contractActions.recordStarterException(
+              cidx, `${ALL_CHARACTERS[cidx].name}의 주전 기용 약속을 지킬 편성이 없어 그대로 공연했다`,
+            ));
+            go('/performance/live');
+          }}
+        >
+          공연 시작
+        </Btn>
+      )}
     >
       <Section title={`오프닝 곡 · 보유 곡 ${req.have}/${req.required}`}>
         {!req.met && <Notice tone="risk">데뷔 쇼케이스에는 최소 {req.required}곡이 필요하다. 합주나 녹음으로 한 주를 더 보내자.</Notice>}
@@ -66,6 +84,24 @@ export function PerformancePrepScreen() {
       {alreadyPlayed && (
         <Section title="이번 주 일정">
           <Notice>이번 주 무대는 이미 끝났다. 다음 주 일정에 공연을 넣자.</Notice>
+        </Section>
+      )}
+
+      {starters.violations.length > 0 && (
+        <Section title="기용 약속">
+          {starters.fixable.map((f) => (
+            <Notice key={f.characterId} tone="risk">
+              {ALL_CHARACTERS[f.characterId].name}은(는) 주전 약속이 걸려 있다. {f.slotLabel} 자리에 올려 편성을 고치면 공연할 수 있다.
+            </Notice>
+          ))}
+          {starters.unmeetable.map((cidx) => (
+            <Notice key={cidx} tone="warn">
+              {ALL_CHARACTERS[cidx].name}의 주전 약속을 지킬 편성이 지금 구조에는 없다. 공연은 진행할 수 있고, 이 예외는 기록에 남는다.
+            </Notice>
+          ))}
+          {starters.fixable.length > 0 && (
+            <div className="mt12"><Btn variant="secondary" full onClick={() => go('/band')}>라인업 고치러 가기</Btn></div>
+          )}
         </Section>
       )}
 

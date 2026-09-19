@@ -97,7 +97,8 @@ export function PerformanceScreen() {
     const result = resolvePerformance(save, choiceScore);
     performanceActions.commit({
       venueId: venue.id, venueName: venue.name,
-      lineup: lineup.map((s) => ({ slot: s.slot, label: s.displayName ?? '' })),
+      // 실제로 무대에 선 사람을 남긴다 (주전 기용 약속 판정의 근거).
+      lineup: lineup.map((s) => ({ slot: s.slot, label: s.displayName ?? '', characterId: s.characterId ?? null })),
       openingSongTitle: opening.title,
       audience: result.audience, grade: result.grade,
       revenue: result.revenue,

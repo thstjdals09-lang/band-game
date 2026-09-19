@@ -82,6 +82,7 @@ export function createNewGame(producerName: string): SaveData {
     pendingPerformance: null,
     eventHistory: [],
     performanceHistory: [],
+    contractExceptions: [],
     careerHistory: [{ week: 1, type: 'MILESTONE', text: '작은 지하 연습실에서 시작했다.' }],
     economy: { cash: PROTOTYPE_BALANCE.start.cash, ledger: [] },
     rng: { baseSeed: Math.floor(Math.random() * 2 ** 31), streams: { audition: 0, events: 0, performance: 0, world: 0 } },

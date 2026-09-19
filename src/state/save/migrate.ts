@@ -37,6 +37,13 @@ export function ensureSaveDefaults(input: SaveData): SaveData {
   s.eventHistory = s.eventHistory ?? [];
   s.performanceHistory = s.performanceHistory ?? [];
   s.careerHistory = s.careerHistory ?? [];
+  s.contractExceptions = s.contractExceptions ?? [];
+  // 기존 계약의 주급·기간·역할은 소급 변경하지 않는다. 새로 생긴 필드만 채운다.
+  Object.values(s.contracts ?? {}).forEach((c) => {
+    if (!c) return;
+    c.renewal = c.renewal ?? null;
+    c.pendingChange = c.pendingChange ?? null;
+  });
   s.relationships = s.relationships ?? [];
   s.sessionHires = s.sessionHires ?? {};
   Object.values(s.auditions ?? {}).forEach((a) => {

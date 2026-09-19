@@ -66,11 +66,39 @@ export interface RelationshipEdge {
 export interface ContractState {
   characterId: CharacterId;
   salary: number;
+  /** 절대 주차 (연도 반영). 연도가 넘어가도 주수 계산이 어긋나지 않는다. */
   startWeek: number;
+  /** 절대 주차. 이 주의 정산까지 마치면 계약이 끝난다. */
   endWeek: number;
   rolePromise: 'CORE_MEMBER' | 'SUPPORT_MEMBER';
   clauses: string[];
   satisfaction: number;
+  /**
+   * 재계약 (CONTRACT V1 §3). 기존 계약이 끝난 다음 주에 이 조건으로 새 계약이 시작한다.
+   * 기존 계약에 소급 적용하지 않고 기간도 중복 계산하지 않는다.
+   */
+  renewal?: { salary: number; durationWeeks: number; rolePromise: 'CORE_MEMBER' | 'SUPPORT_MEMBER' } | null;
+  /**
+   * 계약 중 역할 변경 (CONTRACT V1 §5). 합의한 주차 다음 주부터 적용된다.
+   * 계약 만료일은 그대로 유지한다.
+   */
+  pendingChange?: {
+    salary: number;
+    rolePromise: 'CORE_MEMBER' | 'SUPPORT_MEMBER';
+    /** 이 절대 주차부터 적용. */
+    effectiveWeek: number;
+  } | null;
+}
+
+/**
+ * 약속을 지킬 수 있는 편성이 아예 없어서 공연을 허용한 경우의 기록 (CONTRACT V1 §4-B).
+ * 미완성 예외 처리이며 여기에 어떤 페널티도 붙이지 않는다.
+ */
+export interface ContractExceptionEntry {
+  week: number;
+  characterId: CharacterId;
+  kind: 'STARTER_PROMISE_UNMEETABLE';
+  text: string;
 }
 
 export type SongStatus =
@@ -239,7 +267,8 @@ export interface PerformanceSnapshot {
   week: number;
   venueId: string;
   venueName: string;
-  lineup: { slot: SlotId; label: string }[];
+  /** 실제로 무대에 선 사람. characterId가 없는 칸은 세션이다. 과거 세이브에는 이 필드가 없다. */
+  lineup: { slot: SlotId; label: string; characterId?: CharacterId | null }[];
   openingSongTitle: string;
   audience: number;
   grade: 'DISASTER' | 'OKAY' | 'GOOD SHOW' | 'GREAT SHOW';
@@ -293,6 +322,8 @@ export interface SaveData {
   eventHistory: EventHistoryEntry[];
   performanceHistory: PerformanceSnapshot[];
   careerHistory: CareerHistoryEntry[];
+  /** CONTRACT V1 §4-B 예외 기록. 없으면 빈 배열. */
+  contractExceptions: ContractExceptionEntry[];
   economy: EconomyState;
   rng: RngState;
   counters: SaveCounters;
