@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" fill="#0f1420"/>
+  <rect x="8" y="8" width="112" height="112" fill="none" stroke="#ff5c7a" stroke-width="3" stroke-dasharray="8 6"/>
+  <text x="64" y="60" text-anchor="middle" font-family="monospace" font-size="14" fill="#ece6da">PLACEHOLDER</text>
+  <text x="64" y="80" text-anchor="middle" font-family="monospace" font-size="14" fill="#ece6da">APP_ICON</text>
+</svg>

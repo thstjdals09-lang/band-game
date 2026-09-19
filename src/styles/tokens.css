@@ -1,0 +1,50 @@
+/* Design tokens - Visual Bible v1.0 §06 Color & Lighting, §07 UI Material, §09 Typography.
+   The Visual Bible names colors (charcoal / dark navy / concrete gray / aged brown / warm amber /
+   coral-pink); the hex values below are PROTOTYPE VARIABLES approximating those names. */
+:root {
+  color-scheme: dark;
+
+  /* Environment base */
+  --c-bg: #0f1420;            /* dark navy - app ground */
+  --c-charcoal: #1a1e26;
+  --c-concrete: #3a3e46;
+  --c-brown: #5b4632;         /* aged brown */
+
+  /* 일상 조명: warm amber / tungsten */
+  --c-amber: #e3a34f;
+  --c-amber-soft: rgba(227, 163, 79, 0.16);
+
+  /* UI Accent: coral / pink - ONLY for active menu, selection, CTA, discovery/growth */
+  --c-accent: #ff5c7a;
+  --c-accent-soft: rgba(255, 92, 122, 0.16);
+
+  /* Text */
+  --c-text: #ebe5d8;
+  --c-text-dim: #9c978d;
+  --c-text-faint: #6b675f;
+
+  /* Dark management panels: near-opaque, thin borders, limited glow */
+  --c-panel: rgba(18, 21, 29, 0.96);
+  --c-panel-2: #171b24;
+  --c-panel-3: #1f2430;
+  --c-border: rgba(235, 229, 216, 0.12);
+  --c-border-strong: rgba(235, 229, 216, 0.26);
+
+  --c-ok: #79c07d;
+  --c-warn: #e3a34f;
+  --c-danger: #ff5c7a;
+
+  /* Information type: small crisp sans. Display type (brush/marker) is a missing asset -> falls back. */
+  --font-info: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+  --font-display: var(--font-info); /* TODO(asset): DISPLAY_FONT_BRUSH (Visual Bible §09 Display Type) */
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --app-max-w: 430px;
+  --hud-h: 34px;
+  --dock-h: 60px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  --radius: 6px;
+  --gutter: 14px;
+}
