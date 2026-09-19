@@ -178,6 +178,81 @@ try {
     `마지막 주까지 급여가 정상 지급된다 (${(-(opLine?.amount ?? 0)).toLocaleString('ko-KR')})`);
   await expect(Array.isArray(afterExp.contractExceptions), '새 필드는 기본값으로 채워져 저장된다');
 
+  // ---- CONTRACT V1 절대 주차: 구형 공연 기록은 지어내지 않고, 새 기록은 통산 주차를 남긴다
+  // (A5) absoluteWeek이 없는 과거 공연 기록을 만들어 둔다
+  const legacyShow = await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('band-game.save.v1'));
+    const sv = raw.state.save;
+    const snap = sv.performanceHistory[0];
+    delete snap.absoluteWeek;
+    localStorage.setItem('band-game.save.v1', JSON.stringify(raw));
+    return JSON.parse(JSON.stringify(snap));
+  });
+  await page.reload();
+  await page.waitForSelector('.hud');
+  const loadedLegacy = (await save()).performanceHistory[0];
+  await expect(JSON.stringify(loadedLegacy) === JSON.stringify(legacyShow),
+    '통산 주차가 없는 공연 기록이 그대로 로드된다 (없는 값을 채우지 않는다)');
+  await expect(loadedLegacy.absoluteWeek === undefined, 'absoluteWeek을 지어내지 않는다');
+  await expect(loadedLegacy.audience === legacyShow.audience && loadedLegacy.revenue === legacyShow.revenue,
+    '관객·수익 등 과거 기록은 그대로다');
+  await page.goto(BASE + '#/management/contracts');
+  await page.waitForTimeout(300);
+  await expect((await text()).includes('아직 판정할 공연 기록이 없다'),
+    '통산 주차가 없는 기록은 계약 기간 비교에 쓰이지 않고 결장으로도 세지 않는다');
+
+  // (A6) 2년차 9주차에 새 공연을 마치면 week 9 / absoluteWeek 61 이 남는다
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('band-game.save.v1'));
+    const sv = raw.state.save;
+    sv.world.year = 2;
+    sv.world.week = 9;
+    sv.economy.cash = 5_000_000;
+    // 계약이 남아 있는 멤버만 무대에 세운다
+    const member = Object.keys(sv.contracts)[0];
+    sv.band.lineup.forEach((x) => { x.assignment = null; });
+    sv.band.lineup[0].assignment = { kind: 'MEMBER', characterId: member };
+    sv.contracts[member].endWeek = 200;
+    const songIds = Object.keys(sv.songs);
+    sv.opportunities.oAbs = {
+      id: 'oAbs', type: 'LIVE', title: 'Basement Club 재섭외', description: '또 불렀다',
+      createdWeek: 9, expiresWeek: 13, status: 'NEW', payload: { venueId: 'BASEMENT_CLUB' },
+    };
+    sv.pendingPerformance = { opportunityId: 'oAbs', venueId: 'BASEMENT_CLUB', openingSongId: songIds[0], status: 'SCHEDULED' };
+    sv.weeklyPlan.mainActions = ['LIVE_SHOW', null, null];
+    localStorage.setItem('band-game.save.v1', JSON.stringify(raw));
+  });
+  await page.reload();
+  await page.waitForTimeout(400);
+  const beforeAbsShow = await save();
+  await expect(beforeAbsShow.world.year === 2 && beforeAbsShow.world.week === 9, '2년차 9주차 상태를 만들었다');
+
+  await page.goto(BASE + '#/performance/prep');
+  await page.waitForTimeout(300);
+  await tapText('공연 시작');
+  await page.waitForTimeout(250);
+  for (let g = 0; g < 30; g += 1) {
+    if (new URL(page.url()).hash === '#/performance/result') break;
+    const t = await text();
+    if (t.includes('그대로 밀어붙인다')) { await tapText('그대로 밀어붙인다'); continue; }
+    if (t.includes('무대를 내려온다')) { await tapText('무대를 내려온다'); continue; }
+    await tapText('계속', true);
+  }
+  await tapText('연습실로 돌아가기');
+  await page.waitForTimeout(300);
+  const afterAbsShow = await save();
+  const newest = afterAbsShow.performanceHistory[afterAbsShow.performanceHistory.length - 1];
+  console.log('새 공연 기록:', JSON.stringify({ week: newest.week, absoluteWeek: newest.absoluteWeek }));
+  await expect(newest.week === 9, '그 해의 주차는 9로 남는다');
+  await expect(newest.absoluteWeek === 61, '통산 주차는 61로 남는다');
+
+  await page.reload();
+  await page.waitForSelector('.hud');
+  const reloaded = (await save()).performanceHistory.slice(-1)[0];
+  await expect(reloaded.week === 9 && reloaded.absoluteWeek === 61, '새로고침 후에도 두 값이 유지된다');
+  await expect((await save()).performanceHistory[0].absoluteWeek === undefined,
+    '구형 기록은 여전히 통산 주차 없이 남아 있다');
+
   if (errors.length) throw new Error(`PAGE ERRORS:\n${errors.join('\n')}`);
   console.log('\nSAVE COMPATIBILITY PASSED');
 } catch (e) {

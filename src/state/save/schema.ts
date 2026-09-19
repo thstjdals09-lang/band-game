@@ -264,7 +264,13 @@ export interface EventHistoryEntry {
 /** Historical snapshot - stored with values at that time, never recomputed. */
 export interface PerformanceSnapshot {
   id: string;
+  /** 그 해의 주차. 화면 표시용이며 의미를 바꾸지 않는다. */
   week: number;
+  /**
+   * 공연을 마친 시점의 통산 주차 (연도 반영). 계약 기간과 비교할 때 쓴다.
+   * 이 필드가 생기기 전에 저장된 공연에는 없으며, 없는 값을 지어내지 않는다.
+   */
+  absoluteWeek?: number;
   venueId: string;
   venueName: string;
   /** 실제로 무대에 선 사람. characterId가 없는 칸은 세션이다. 과거 세이브에는 이 필드가 없다. */

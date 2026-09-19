@@ -205,14 +205,13 @@ try {
   // ================================================================ [9] 위반 사전 확인 + 편성 안내
   // 공연은 한 주에 한 번이므로 한 주를 보낸 뒤 다음 공연을 준비한다
   await runWeek();
-  // 결장 2회를 만들어 다음 공연이 위반이 되도록 기록을 넣는다 (테스트 준비)
+  // 다음 공연이 위반이 되도록 결장 기록을 넣는다 (테스트 준비)
   await patch(`
-    const w = 1; // 지난 주들의 결장 기록 (이번 주가 아니어야 한다)
+    const w = 1; // 지난 주의 결장 기록 (이번 주가 아니어야 한다). 1년차라 통산 주차도 같다.
+    // 결장 1회. 이번에도 빠지면 최근 4회 중 결장 2회가 되어 약속을 어긴다.
+    // (결장 2회를 미리 넣으면 누구를 올려도 풀리지 않는 B 상황이 되므로 여기서는 1회만 넣는다.)
     sv.performanceHistory.push(
-      { id:'pX', week:w, venueId:'BASEMENT_CLUB', venueName:'Basement Club',
-        lineup:[{slot:'GUITAR',label:'민채린',characterId:'C04'}], openingSongTitle:'B',
-        audience:40, grade:'OKAY', revenue:1, fansDelta:1, reputationDelta:1, crowdEnergyPeak:40, choices:[] },
-      { id:'pY', week:w, venueId:'BASEMENT_CLUB', venueName:'Basement Club',
+      { id:'pX', week:w, absoluteWeek:w, venueId:'BASEMENT_CLUB', venueName:'Basement Club',
         lineup:[{slot:'GUITAR',label:'민채린',characterId:'C04'}], openingSongTitle:'B',
         audience:40, grade:'OKAY', revenue:1, fansDelta:1, reputationDelta:1, crowdEnergyPeak:40, choices:[] },
     );

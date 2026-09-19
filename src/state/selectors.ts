@@ -282,23 +282,75 @@ export function starterCheck(save: SaveData): StarterCheck {
 
   const fixable: { characterId: CharacterId; slotLabel: string }[] = [];
   const unmeetable: CharacterId[] = [];
+  if (violations.length === 0) return { violations, fixable, unmeetable };
+
+  const compatibleSlots = (id: CharacterId) => save.band.lineup.filter((x) => {
+    const def = SLOT_DEFINITIONS[x.slotId];
+    return def && CHARACTERS[id].positions.some((p) => def.compatiblePositions.includes(p));
+  });
+
+  // 제안하는 편성이 실제로 모든 약속을 지키는지 같은 판정으로 확인한다.
+  // (확인 없이 "고치면 된다"고 하면, 고쳐도 다른 주전이 대신 어겨 공연이 영원히 막힌다.)
+  const resolves = (next: CharacterId[]) => starterViolations(save, next).length === 0;
+  const withMemberInSlot = (slotId: SlotId, id: CharacterId) => {
+    const next = save.band.lineup
+      .map((x) => (x.assignment?.kind === 'MEMBER' ? x.assignment.characterId : null))
+      .filter((x, i): x is CharacterId => !!x && save.band.lineup[i].slotId !== slotId);
+    return next.includes(id) ? next : [...next, id];
+  };
+
+  // 1) 위반한 주전을 한 명씩 자기 자리에 넣어 본다.
+  for (const v of violations) {
+    if (performers.includes(v.characterId)) continue; // 이미 무대에 있다 = 편성으로 풀 문제가 아니다
+    const slot = compatibleSlots(v.characterId)
+      .find((x) => resolves(withMemberInSlot(x.slotId, v.characterId)));
+    if (slot) fixable.push({ characterId: v.characterId, slotLabel: SLOT_DEFINITIONS[slot.slotId]?.label ?? slot.slotId });
+  }
+  // 2) 한 명씩으로 풀리지 않으면 위반한 주전을 모두 올려 본다.
+  //    한 자리에 두 명을 세울 수는 없으므로 서로 다른 칸을 줘야 하고,
+  //    먼저 본 사람이 좋은 칸을 차지해 뒷사람이 갈 곳을 잃는 경우가 있으므로 물러나서 다시 찾는다.
+  //    (예: C02는 VOCAL/KEYS 둘 다 되지만 C01은 VOCAL뿐이다 -> VOCAL=C01, KEYS=C02)
+  if (fixable.length === 0) {
+    const benched = violations.map((v) => v.characterId).filter((id) => !performers.includes(id));
+    const search = (
+      queue: CharacterId[],
+      taken: Set<SlotId>,
+      placements: { characterId: CharacterId; slotId: SlotId }[],
+      roster: CharacterId[],
+    ): { characterId: CharacterId; slotId: SlotId }[] | null => {
+      const [id, ...rest] = queue;
+      if (!id) return resolves(roster) ? placements : null;
+      for (const slot of compatibleSlots(id)) {
+        if (taken.has(slot.slotId)) continue;
+        const found = search(
+          rest,
+          new Set(taken).add(slot.slotId),
+          [...placements, { characterId: id, slotId: slot.slotId }],
+          withMemberInSlotOn(roster, save, slot.slotId, id),
+        );
+        if (found) return found;
+      }
+      return null;
+    };
+    const placements = benched.length > 0 ? search(benched, new Set<SlotId>(), [], performers.slice()) : null;
+    placements?.forEach((pl) => fixable.push({
+      characterId: pl.characterId,
+      slotLabel: SLOT_DEFINITIONS[pl.slotId]?.label ?? pl.slotId,
+    }));
+  }
+  // 지금 편성 규칙으로는 풀 수 없는 위반 (CONTRACT V1 §4-B 예외)
   violations.forEach((v) => {
-    // 이미 무대에 서 있다면 편성 문제가 아니다 (과거 결장 누적).
-    if (performers.includes(v.characterId)) { unmeetable.push(v.characterId); return; }
-    const slot = save.band.lineup.find((x, i) => {
-      void x;
-      return i === firstEmptyCompatibleSlotIndex(save, v.characterId);
-    });
-    // 빈 칸이 없으면 세션이나 다른 멤버가 쓰고 있는 칸을 비워 만들 수 있는지 본다.
-    const takeable = save.band.lineup.find((x) => {
-      const def = SLOT_DEFINITIONS[x.slotId];
-      return def && CHARACTERS[v.characterId].positions.some((p) => def.compatiblePositions.includes(p));
-    });
-    const target = slot ?? takeable;
-    if (target) fixable.push({ characterId: v.characterId, slotLabel: SLOT_DEFINITIONS[target.slotId]?.label ?? target.slotId });
-    else unmeetable.push(v.characterId);
+    if (!fixable.some((f) => f.characterId === v.characterId)) unmeetable.push(v.characterId);
   });
   return { violations, fixable, unmeetable };
+}
+
+/** 주어진 출전 명단에서 해당 슬롯 주인을 바꾼 명단. */
+function withMemberInSlotOn(current: CharacterId[], save: SaveData, slotId: SlotId, id: CharacterId): CharacterId[] {
+  const occupant = save.band.lineup.find((x) => x.slotId === slotId)?.assignment;
+  const occupantId = occupant?.kind === 'MEMBER' ? occupant.characterId : null;
+  const next = current.filter((x) => x !== occupantId);
+  return next.includes(id) ? next : [...next, id];
 }
 
 export function conditionWord(v: number): string {

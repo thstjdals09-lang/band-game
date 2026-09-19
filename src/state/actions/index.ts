@@ -444,14 +444,20 @@ export const performanceActions = {
    * reputation. This is the only place a show is settled, so the weekly engine leaves the
    * LIVE_SHOW slot alone and nothing can be applied twice.
    */
-  commit(snapshot: Omit<PerformanceSnapshot, 'id' | 'week'>) {
+  commit(snapshot: Omit<PerformanceSnapshot, 'id' | 'week' | 'absoluteWeek'>) {
     update((d) => {
       // A show must be booked to be settled; after this the booking is cleared, so a repeated
       // call (re-entering the stage, a reload) finds nothing to settle.
       if (!d.pendingPerformance || d.pendingPerformance.status === 'DONE') return;
 
       d.counters.performance += 1;
-      const snap: PerformanceSnapshot = { ...snapshot, id: `perf_${pad(d.counters.performance)}`, week: d.world.week };
+      // 주차 증가 전에 정산되므로 여기의 world가 곧 공연을 마친 시점이다.
+      const snap: PerformanceSnapshot = {
+        ...snapshot,
+        id: `perf_${pad(d.counters.performance)}`,
+        week: d.world.week,
+        absoluteWeek: absoluteWeek(d.world),
+      };
       d.performanceHistory.push(snap);
       d.band.metrics.fans += snap.fansDelta;
       d.band.metrics.reputation += snap.reputationDelta;

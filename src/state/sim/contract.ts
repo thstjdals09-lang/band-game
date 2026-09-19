@@ -214,8 +214,10 @@ export function performersOf(snapshot: PerformanceSnapshot): CharacterId[] | nul
 }
 
 /**
- * 주전 기용 약속 판정. 계약 시작 이후 실제로 완료된 공연만 보고, 출전 기록이 없는 과거 공연은
- * 가짜로 채우지 않고 건너뛴다. upcomingPerformers를 주면 그 공연까지 포함해 미리 계산한다.
+ * 주전 기용 약속 판정. 지금 계약이 시작한 뒤 실제로 완료된 공연만 본다.
+ * 재계약은 startWeek이 새로 잡히므로 판정 구간도 그 시점부터 새로 시작한다.
+ * 출전자나 통산 주차를 알 수 없는 과거 공연은 가짜로 채우지 않고 건너뛴다.
+ * upcomingPerformers를 주면 그 공연까지 포함해 미리 계산한다.
  */
 export function starterPromise(
   save: SaveData,
@@ -229,9 +231,12 @@ export function starterPromise(
 
   const shows: boolean[] = []; // true = 출전
   save.performanceHistory.forEach((snap) => {
-    if (snap.week < contract.startWeek) return; // 계약 이전 공연은 계산하지 않는다
     const performers = performersOf(snap);
-    if (performers === null) return; // 검증할 수 없는 기록은 건너뛴다
+    if (performers === null) return; // 출전자를 알 수 없는 기록은 건너뛴다
+    // 계약 기간 비교는 통산 주차로만 한다. snap.week은 그 해의 주차라서 연도가 바뀌면 어긋난다.
+    // 통산 주차가 없는 과거 기록은 출전으로도 결장으로도 세지 않는다.
+    if (typeof snap.absoluteWeek !== 'number') return;
+    if (snap.absoluteWeek < contract.startWeek) return; // 지금 계약이 시작하기 전의 공연
     shows.push(performers.includes(characterId));
   });
   if (upcomingPerformers) shows.push(upcomingPerformers.includes(characterId));
