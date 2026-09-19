@@ -62,6 +62,9 @@ try {
 
   // and a fresh week still runs on top of it
   const before = await save();
+  await page.goto(BASE + '#/band/songs');
+  await page.waitForTimeout(280);
+  if ((await text()).includes('새 곡 작업 예약')) { await tapText('새 곡 작업 예약'); }
   await page.goto(BASE + '#/schedule');
   await page.waitForSelector('.actionslot');
   await page.locator('.actionslot').first().click();
@@ -81,15 +84,39 @@ try {
   await expect(Object.keys(after.songs).length === Object.keys(before.songs).length + 1, 'the legacy save can still write songs');
   await expect(typeof after.counters.release === 'number', 'the missing release counter was defaulted');
 
-  // releasing works on the legacy save too
+  // a legacy song has never been recorded, so v1 asks for a recording before it can go out
   await page.goto(BASE + '#/band/songs');
   await page.waitForTimeout(300);
-  if ((await text()).includes('싱글로 낸다')) {
-    await tapText('싱글로 낸다');
-    await page.waitForTimeout(300);
-    const rel = await save();
-    await expect(Object.keys(rel.releases).length > Object.keys(before.releases ?? {}).length, 'a release can be made from a legacy save');
+  await expect((await text()).includes('녹음 전'), 'legacy songs read as unrecorded demos');
+  await expect((await text()).includes('녹음해야 발매할 수 있다'), 'a legacy demo waits for its recording before release');
+  const legacySong = Object.values((await save()).songs).find((x) => typeof x.recordedWeek !== 'number');
+  await page.locator('.rowcard--stack')
+    .filter({ has: page.locator('.rowcard__title', { hasText: new RegExp(`^${legacySong.title}$`) }) })
+    .first().locator('.btn', { hasText: '이번 주에 녹음한다' }).first().click();
+  await page.waitForTimeout(250);
+  await page.goto(BASE + '#/schedule');
+  await page.waitForSelector('.actionslot');
+  await page.locator('.actionslot').nth(0).click();
+  await page.waitForSelector('.sheet .rowcard');
+  await page.locator('.sheet .rowcard')
+    .filter({ has: page.locator('.rowcard__title', { hasText: /^녹음$/ }) }).first().click();
+  await page.waitForTimeout(220);
+  await tapText('다음 주로 ▶');
+  for (let g = 0; g < 16; g += 1) {
+    if ((await text()).includes('한 주가 끝났다')) break;
+    await tapText('계속', true);
   }
+  await tapText('연습실로 돌아가기');
+  await page.waitForTimeout(280);
+  await page.goto(BASE + '#/band/songs');
+  await page.waitForTimeout(300);
+  await page.locator('.rowcard--stack')
+    .filter({ has: page.locator('.rowcard__title', { hasText: new RegExp(`^${legacySong.title}$`) }) })
+    .first().locator('.btn', { hasText: '싱글로 낸다' }).first().click();
+  await page.waitForTimeout(320);
+  const rel = await save();
+  await expect(Object.keys(rel.releases).length > Object.keys(before.releases ?? {}).length,
+    'a legacy song can be recorded and released');
 
   if (errors.length) throw new Error(`PAGE ERRORS:\n${errors.join('\n')}`);
   console.log('\nSAVE COMPATIBILITY PASSED');

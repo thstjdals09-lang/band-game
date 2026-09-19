@@ -5,8 +5,10 @@ import {
   SESSION_TEMPLATES, SLOT_DEFINITIONS, VENUES,
   type CharacterId, type SlotId, type VisibleStats,
 } from '@/data/master';
-import type { LineupAssignment, SaveData } from './save/schema';
+import { isRecorded, isReleased } from './save/schema';
+import type { LineupAssignment, SaveData, SongState } from './save/schema';
 import { unlockedRevenueStreams } from './sim/career';
+import { recordingCandidates, resolveRecording, resolveRehearsalTarget } from './sim/weekEngine';
 
 export type Grade = 'GREAT' | 'GOOD' | 'FAIR' | 'POOR' | '—';
 export type RiskGrade = 'LOW' | 'MEDIUM' | 'HIGH' | '—';
@@ -105,8 +107,11 @@ export function weeklySessionCost(save: SaveData): number {
 export function projectedExpense(save: SaveData): number {
   // LIVE_SHOW is not previewed here: the production cost is charged by the show itself when the
   // band actually takes the stage, so a booked-but-unplayed slot never bills anything.
+  // RECORDING only counts when it has a song to finish, for the same reason.
   const actionCost = save.weeklyPlan.mainActions.reduce((sum, a) => {
-    const def = a && a !== 'LIVE_SHOW' ? ACTIVITIES.find((x) => x.scope === 'BAND' && x.id === a) : undefined;
+    if (!a || a === 'LIVE_SHOW') return sum;
+    if (a === 'RECORDING' && !resolveRecording(save)) return sum;
+    const def = ACTIVITIES.find((x) => x.scope === 'BAND' && x.id === a);
     return sum + (def?.cost ?? 0);
   }, 0);
   const indCost = save.weeklyPlan.individualActions.reduce((sum, ia) => {
@@ -125,6 +130,17 @@ export function scheduleWarnings(save: SaveData): ScheduleWarning[] {
     if (c && c.stress > 60) out.push({ level: 'RISK', text: `${CHARACTERS[id].name} 스트레스가 높다` });
   });
   if (projectedExpense(save) > save.economy.cash) out.push({ level: 'RISK', text: '예상 지출이 보유 자금을 넘는다' });
+  // v1 규칙 1·3: a reservation without its slot, or a slot without its song, quietly does nothing.
+  const work = songWorkView(save);
+  if (work.newSong && work.practiceSlots === 0) {
+    out.push({ level: 'WARN', text: '새 곡 작업을 예약했지만 합주가 없다' });
+  }
+  if (work.recordingSlot && !work.recordingTarget) {
+    out.push({ level: 'WARN', text: '녹음할 곡을 고르지 않았다' });
+  }
+  if (!work.recordingSlot && save.weeklyPlan.songWork.recordingSongId) {
+    out.push({ level: 'WARN', text: '녹음할 곡을 골랐지만 일정에 녹음이 없다' });
+  }
   return out;
 }
 
@@ -173,17 +189,59 @@ export interface ReleaseReadiness {
   /** Music revenue opens only after the first show (GDD: 공연 -> 음원/앨범). */
   canRelease: boolean;
   epSongs: ReturnType<typeof songList>;
+  /** Marked for the EP but still unrecorded, so not usable yet. */
+  epWaiting: ReturnType<typeof songList>;
   canReleaseEp: boolean;
 }
 
 export function releaseReadiness(save: SaveData): ReleaseReadiness {
   const canRelease = unlockedRevenueStreams(save).includes('MUSIC');
-  const epSongs = songList(save).filter((s) => s.status === 'SAVED_FOR_EP');
+  // v1 규칙 4: only a recorded song can go out, so an EP is built from recorded songs only.
+  const epSongs = songList(save).filter((s) => s.status === 'SAVED_FOR_EP' && isRecorded(s));
+  const epWaiting = songList(save).filter((s) => s.status === 'SAVED_FOR_EP' && !isRecorded(s));
   return {
     canRelease,
     epSongs,
+    epWaiting,
     canReleaseEp: canRelease && epSongs.length >= RELEASE_FORMATS.EP.songsRequired,
   };
+}
+
+// ---- This week's song work (v1 규칙 1·2·3) ------------------------------------------------
+export interface SongWorkView {
+  newSong: boolean;
+  practiceSlots: number;
+  /** Rehearsal slots left after the new-song slot is taken. */
+  rehearsalSlots: number;
+  rehearsalTarget: SongState | null;
+  /** The target was chosen by the player rather than following the opening song. */
+  rehearsalPinned: boolean;
+  recordingSlot: boolean;
+  recordingTarget: SongState | null;
+  recordingOptions: SongState[];
+  recordingRoom: boolean;
+}
+export function songWorkView(save: SaveData): SongWorkView {
+  const practiceSlots = save.weeklyPlan.mainActions.filter((a) => a === 'PRACTICE').length;
+  const newSong = save.weeklyPlan.songWork.newSong;
+  const usesSlot = newSong && practiceSlots > 0;
+  const rehearsalSlots = practiceSlots - (usesSlot ? 1 : 0);
+  const options = recordingCandidates(save);
+  return {
+    newSong,
+    practiceSlots,
+    rehearsalSlots,
+    rehearsalTarget: rehearsalSlots > 0 ? resolveRehearsalTarget(save) : null,
+    rehearsalPinned: !!save.weeklyPlan.songWork.rehearsalSongId,
+    recordingSlot: save.weeklyPlan.mainActions.includes('RECORDING'),
+    recordingTarget: options.find((x) => x.id === save.weeklyPlan.songWork.recordingSongId) ?? null,
+    recordingOptions: options,
+    recordingRoom: !!save.facilities.RECORDING_ROOM?.built,
+  };
+}
+/** Songs the band can still rehearse for the stage. */
+export function rehearsableSongs(save: SaveData): SongState[] {
+  return songList(save).filter((s) => !isReleased(s.status));
 }
 
 /** The weekly plan holds a LIVE_SHOW slot: the band intends to take the stage this week. */

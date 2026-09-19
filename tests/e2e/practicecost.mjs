@@ -65,6 +65,13 @@ try {
     .filter({ has: page.locator('.rowcard__title', { hasText: /^합주 연습$/ }) }).first().click();
   await page.waitForTimeout(200);
 
+  // v1: a demo needs the booking, so book it to keep checking that practice is free
+  await page.goto(BASE + '#/band/songs');
+  await page.waitForTimeout(280);
+  if ((await text()).includes('새 곡 작업 예약')) { await tapText('새 곡 작업 예약'); }
+  await page.goto(BASE + '#/schedule');
+  await page.waitForSelector('.actionslot');
+
   // ---- run the week and read the ledger
   const before = await save();
   await tapText('다음 주로 ▶');

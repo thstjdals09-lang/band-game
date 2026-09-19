@@ -49,7 +49,9 @@ function signTwoMembers() {
 
 /** Run one creative week through the real simulation engine. */
 function creativeWeek() {
+  // v1: a demo only comes out of rehearsal when new-song work was booked first.
   scheduleActions.setMainAction(0, 'PRACTICE');
+  scheduleActions.setNewSongWork(true);
   scheduleActions.commitWeek(simulateWeek(save()));
 }
 

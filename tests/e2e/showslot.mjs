@@ -187,55 +187,8 @@ try {
   console.log(`홍보 팬 증가 — 1칸 +${f1} / 2칸 +${f2} / 3칸 +${f3}`);
   await expect(f2 === f1 * 2 && f3 === f1 * 3, '홍보 팬 증가가 슬롯 수만큼 적용된다');
 
-  // ================================================================ 4. EP release record
-  await preset('H · 시설 건설 후');
-  await page.waitForTimeout(300);
-  // gather three songs by rehearsing, then mark them for the EP
-  for (let i = 0; i < 4; i += 1) {
-    const sv = await save();
-    const keepable = Object.values(sv.songs).filter((x) => x.status === 'UNRELEASED' || x.status === 'SAVED_FOR_EP');
-    if (keepable.length >= 3) break;
-    await setSlot(0, '합주 연습');
-    await runWeek();
-  }
-  await page.goto(BASE + '#/band/songs');
-  await page.waitForTimeout(300);
-  // one button per song card: mark three different songs
-  const n = Math.min(3, await page.locator('.btn', { hasText: 'EP까지 모은다' }).count());
-  for (let i = 0; i < n; i += 1) {
-    await page.locator('.btn', { hasText: 'EP까지 모은다' }).nth(i).click();
-    await page.waitForTimeout(220);
-  }
-  const marked = Object.values((await save()).songs).filter((x) => x.status === 'SAVED_FOR_EP');
-  await expect(marked.length >= 3, `EP용으로 ${marked.length}곡을 모았다`);
-  await page.goto(BASE + '#/band/songs');
-  await page.waitForTimeout(300);
-  await tapText('EP로 낸다');
-  await page.waitForTimeout(350);
+  // EP 발매 기록은 tests/e2e/songwork.mjs 가 녹음까지 포함해 검증한다.
 
-  const epSave = await save();
-  const ep = Object.values(epSave.releases).find((r) => r.type === 'EP');
-  await expect(!!ep, 'EP 발매 기록이 남았다');
-  const epSongs = ep.songIds.map((id) => epSave.songs[id]);
-  await expect(epSongs.every((x) => x.status === 'RELEASED_EP'),
-    `EP 수록곡이 EP로 기록된다 (${epSongs.map((x) => x.status).join(', ')})`);
-  await expect(epSongs.every((x) => x.status !== 'RELEASED_SINGLE'), '더 이상 싱글로 잘못 기록되지 않는다');
-  await page.goto(BASE + '#/band/songs');
-  await page.waitForTimeout(300);
-  await expect((await text()).includes('EP 수록'), '곡 화면에 EP 수록으로 표시된다');
-
-  // old saves keep working: a legacy RELEASED_SINGLE song still reads as released
-  await page.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem('band-game.save.v1'));
-    const sv = raw.state.save;
-    const first = Object.values(sv.songs)[0];
-    first.status = 'RELEASED_SINGLE';
-    localStorage.setItem('band-game.save.v1', JSON.stringify(raw));
-  });
-  await page.reload();
-  await page.goto(BASE + '#/band/songs');
-  await page.waitForTimeout(350);
-  await expect((await text()).includes('싱글 발매'), '기존 싱글 발매 기록도 그대로 읽힌다');
   await expect(errors.length === 0, '콘솔 에러 없음');
 
   console.log('\nSHOW SLOT / PROMOTION / EP CHECK PASSED');

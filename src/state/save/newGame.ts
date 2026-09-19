@@ -3,7 +3,7 @@ import {
   CHARACTER_IDS, CHARACTERS, CONTENT_VERSION, CORE_LINEUP_SLOTS, FACILITIES, FIRST_AUDITION_CANDIDATES,
   PROTOTYPE_BALANCE, type CharacterId,
 } from '@/data/master';
-import { SAVE_SCHEMA_VERSION, type CharacterState, type SaveData, type WorldStatus } from './schema';
+import { EMPTY_SONG_WORK, SAVE_SCHEMA_VERSION, type CharacterState, type SaveData, type WorldStatus } from './schema';
 
 function initialWorldStatus(id: CharacterId): WorldStatus {
   if (FIRST_AUDITION_CANDIDATES.includes(id)) return 'AVAILABLE';
@@ -77,7 +77,7 @@ export function createNewGame(producerName: string): SaveData {
       },
     },
     sessionHires: {},
-    weeklyPlan: { mainActions: [null, null, null], individualActions: [] },
+    weeklyPlan: { mainActions: [null, null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } },
     opportunities: {},
     pendingPerformance: null,
     eventHistory: [],

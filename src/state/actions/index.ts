@@ -11,7 +11,7 @@ import { firstEmptyCompatibleSlotIndex } from '../selectors';
 import { achievedMilestones, careerTierFor } from '../sim/career';
 import { clampCondition, grantExperience, stageForExperience } from '../sim/growth';
 import type { WeekOutcome } from '../sim/weekEngine';
-import { isReleased } from '../save/schema';
+import { EMPTY_SONG_WORK, isRecorded, isReleased } from '../save/schema';
 import type { CareerTier, LineupAssignment, PerformanceSnapshot, RevealKey, SaveData, SongStatus } from '../save/schema';
 
 const B = PROTOTYPE_BALANCE;
@@ -131,7 +131,27 @@ export const bandActions = {
 // ---------------------------------------------------------------- Schedule
 export const scheduleActions = {
   setMainAction(index: number, actionId: MainActionId | null) {
-    update((d) => { d.weeklyPlan.mainActions[index] = actionId; });
+    update((d) => {
+      // v1 규칙 3: at most one recording slot a week.
+      if (actionId === 'RECORDING') {
+        d.weeklyPlan.mainActions = d.weeklyPlan.mainActions.map((a, i) => (i !== index && a === 'RECORDING' ? null : a));
+      }
+      d.weeklyPlan.mainActions[index] = actionId;
+      // Dropping the last recording slot drops its target with it.
+      if (!d.weeklyPlan.mainActions.includes('RECORDING')) d.weeklyPlan.songWork.recordingSongId = null;
+    });
+  },
+  /** Book (or cancel) new-song work for this week, from the Songs screen (v1 규칙 1). */
+  setNewSongWork(on: boolean) {
+    update((d) => { d.weeklyPlan.songWork.newSong = on; });
+  },
+  /** Choose which existing song the rehearsal slots prepare; null follows the opening song. */
+  setRehearsalSong(songId: string | null) {
+    update((d) => { d.weeklyPlan.songWork.rehearsalSongId = songId; });
+  },
+  /** Choose the demo the recording slot finishes; null leaves the console idle. */
+  setRecordingSong(songId: string | null) {
+    update((d) => { d.weeklyPlan.songWork.recordingSongId = songId; });
   },
   setIndividualAction(index: number, plan: { characterId: CharacterId; actionId: IndividualActionId } | null) {
     update((d) => {
@@ -190,6 +210,19 @@ export const scheduleActions = {
         d.songs[id] = { id, ...song };
       }
 
+      // v1 규칙 3: the recording slot finishes one demo. Guarded so a song is never recorded twice.
+      if (outcome.recording) {
+        const song = d.songs[outcome.recording.songId];
+        if (song && !isRecorded(song) && !isReleased(song.status)) {
+          song.recordedWeek = week + (d.world.year - 1) * 52;
+        }
+      }
+      // v1 규칙 2: rehearsal time is banked on the song it was spent on.
+      if (outcome.rehearsal) {
+        const song = d.songs[outcome.rehearsal.songId];
+        if (song) song.rehearsalCount = (song.rehearsalCount ?? 0) + outcome.rehearsal.slots;
+      }
+
       if (outcome.fansDelta) d.band.metrics.fans += outcome.fansDelta;
       if (outcome.fanLoyaltyDelta) d.band.metrics.fanLoyalty += outcome.fanLoyaltyDelta;
 
@@ -218,7 +251,7 @@ export const scheduleActions = {
 
       d.world.week += 1;
       if (d.world.week > 52) { d.world.week = 1; d.world.year += 1; }
-      d.weeklyPlan = { mainActions: [null, null, null], individualActions: [] };
+      d.weeklyPlan = { mainActions: [null, null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } };
       d.rng.streams.world += 1;
 
       syncCareer(d);
@@ -273,6 +306,8 @@ export const songActions = {
       const songs = songIds.map((id) => d.songs[id]).filter(Boolean);
       if (!format || songs.length < format.songsRequired) return;
       if (songs.some((s) => isReleased(s.status))) return;
+      // v1 규칙 4: only recorded songs can be released.
+      if (songs.some((s) => !isRecorded(s))) return;
 
       const week = d.world.week;
       const absWeek = week + (d.world.year - 1) * 52;

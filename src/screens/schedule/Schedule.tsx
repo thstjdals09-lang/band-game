@@ -3,7 +3,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { ACTIVITIES, CHARACTERS, VENUES, type IndividualActionId, type MainActionId } from '@/data/master';
 import { useSave } from '@/state/store';
-import { activityUnlocked, projectedExpense, scheduleWarnings } from '@/state/selectors';
+import { activityUnlocked, projectedExpense, scheduleWarnings, songWorkView } from '@/state/selectors';
 import { scheduleActions } from '@/state/actions';
 import { useGameNav } from '@/app/navigation';
 import { won, yearWeekLong } from '@/app/format';
@@ -23,6 +23,20 @@ export function ScheduleScreen() {
   const hasMembers = save.band.activeMembers.length > 0;
   const hasAction = plan.mainActions.some(Boolean);
   const venueName = save.pendingPerformance ? VENUES[save.pendingPerformance.venueId]?.name : null;
+  const work = songWorkView(save);
+  // What each filled slot will actually do this week (v1 규칙 1·2·3).
+  let practiceSeen = 0;
+  const slotMeaning = (id: MainActionId | null): string | null => {
+    if (id === 'PRACTICE') {
+      practiceSeen += 1;
+      if (work.newSong && practiceSeen === 1) return '새 곡 작업';
+      return work.rehearsalTarget ? `공연 준비 · ${work.rehearsalTarget.title}` : '합주';
+    }
+    if (id === 'RECORDING') {
+      return work.recordingTarget ? `녹음 · ${work.recordingTarget.title}` : '녹음할 곡을 고르지 않았다';
+    }
+    return null;
+  };
 
   const pick = params.get('pick'); // "main:0" | "ind:0"
   const open = (v: string) => setParams({ pick: v });
@@ -52,7 +66,7 @@ export function ScheduleScreen() {
                 {def ? (
                   <>
                     <div className="actionslot__name">{def.name}{a === 'LIVE_SHOW' && venueName ? ` · ${venueName}` : ''}</div>
-                    <div className="actionslot__desc">{def.summary}</div>
+                    <div className="actionslot__desc">{slotMeaning(a) ?? def.summary}</div>
                     <div className="tags mt8">{def.affects.map((x) => <Tag key={x} tone="mute">{x}</Tag>)}</div>
                   </>
                 ) : <span className="actionslot__empty">+ 활동 고르기</span>}
@@ -103,8 +117,10 @@ export function ScheduleScreen() {
           <div className="col">
             {MAIN.map((a) => {
               const live = a.id === 'LIVE_SHOW';
+              const recording = a.id === 'RECORDING';
               const locked = !activityUnlocked(save, a.id);
-              const disabled = (live && !save.pendingPerformance) || locked;
+              const noDemoToRecord = recording && work.recordingOptions.length === 0;
+              const disabled = (live && !save.pendingPerformance) || locked || noDemoToRecord;
               return (
                 <button
                   key={a.id}
@@ -114,7 +130,13 @@ export function ScheduleScreen() {
                 >
                   <span className="grow">
                     <div className="rowcard__title">{a.name}</div>
-                    <div className="rowcard__meta">{locked ? '녹음실을 지어야 한다' : disabled ? '예정된 공연이 없다' : a.summary}</div>
+                    <div className="rowcard__meta">
+                      {locked ? '녹음실을 지어야 한다'
+                        : noDemoToRecord ? '녹음할 데모가 없다'
+                          : live && !save.pendingPerformance ? '예정된 공연이 없다'
+                            : recording ? '곡 화면에서 녹음할 곡을 고른다 · 주 1회'
+                              : a.summary}
+                    </div>
                     <div className="tags mt8">{a.affects.map((x) => <Tag key={x} tone="mute">{x}</Tag>)}</div>
                   </span>
                   <span className="actionslot__cost">{a.cost ? won(a.cost) : '무료'}</span>

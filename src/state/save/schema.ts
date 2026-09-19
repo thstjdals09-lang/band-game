@@ -96,6 +96,21 @@ export interface SongState {
   musicDna?: MusicDNA;
   genreTags: string[];
   status: SongStatus;
+  /**
+   * Absolute week the demo was turned into a finished recording. Only a recorded song can be
+   * released (v1 규칙 4). Songs from older saves have no field and count as unrecorded.
+   */
+  recordedWeek?: number | null;
+  /**
+   * How many rehearsal slots have been spent preparing this song for the stage (v1 규칙 2).
+   * Recorded as history only — no live-mastery effect is connected yet, see selectors.
+   */
+  rehearsalCount?: number;
+}
+
+/** Only a recorded song can be released (v1 규칙 4). */
+export function isRecorded(song: Pick<SongState, 'recordedWeek'>): boolean {
+  return typeof song.recordedWeek === 'number';
 }
 
 export interface ReleaseState {
@@ -170,9 +185,25 @@ export interface IndividualPlan {
   actionId: IndividualActionId;
 }
 
+/**
+ * What this week's creative slots are pointed at (v1 규칙 1·2·3·5).
+ * Fixed when NEXT WEEK is pressed; a song written this week cannot be a target this week.
+ */
+export interface SongWorkPlan {
+  /** A new demo is booked from the Songs screen; without it rehearsal writes nothing. */
+  newSong: boolean;
+  /** Song the remaining rehearsal slots prepare for the stage. null = follow the opening song. */
+  rehearsalSongId: string | null;
+  /** Demo the recording slot turns into a releasable master. */
+  recordingSongId: string | null;
+}
+
+export const EMPTY_SONG_WORK: SongWorkPlan = { newSong: false, rehearsalSongId: null, recordingSongId: null };
+
 export interface WeeklyPlan {
   mainActions: (MainActionId | null)[]; // 3 slots (SOFT LOCK, IA §15)
   individualActions: IndividualPlan[];  // 1~2
+  songWork: SongWorkPlan;
 }
 
 export type OpportunityType = 'LIVE' | 'MEDIA' | 'RECRUITMENT' | 'SPECIAL_AUDITION' | 'EQUIPMENT' | 'LABEL';

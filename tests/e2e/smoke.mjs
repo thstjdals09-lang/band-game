@@ -175,6 +175,15 @@ try {
   await page.locator('.sheet-backdrop').click();
   await page.waitForTimeout(130);
 
+  // ---------------- SONG WORK (v1): a demo only comes from booked rehearsal
+  await tapText('곡', true);
+  await page.waitForTimeout(250);
+  await expect(hash() === '#/band/songs', 'songs route');
+  await expect((await text()).includes('새 곡 작업 예약'), 'new song work is booked from the Songs screen');
+  await check('BAND / SONGS');
+  await tapText('새 곡 작업 예약');
+  await page.waitForTimeout(200);
+
   // ---------------- SCHEDULE
   await tapText('일정', true);
   await expect(hash() === '#/schedule', 'schedule route');
@@ -231,6 +240,9 @@ try {
   let songsSeen = 1;
   for (let wk = 0; wk < 5; wk += 1) {
     if (liveOffer(await readSave()).length > 0) break;
+    await page.goto(BASE + '#/band/songs');
+    await page.waitForTimeout(250);
+    if ((await text()).includes('새 곡 작업 예약')) { await tapText('새 곡 작업 예약'); }
     await page.goto(BASE + '#/schedule');
     await page.waitForSelector('.actionslot');
     await page.locator('.actionslot').first().click();

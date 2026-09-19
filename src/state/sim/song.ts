@@ -197,10 +197,7 @@ export function createSong(ctx: SongCreationContext): CreatedSong | null {
 }
 
 /** Whether a creative week produces a song at all (GDD: 곡은 활동의 결과로 태어난다). */
-export function createsSong(actions: (MainActionId | null)[]): MainActionId | null {
-  if (actions.includes('RECORDING')) return 'RECORDING';
-  if (actions.includes('PRACTICE')) return 'PRACTICE';
-  return null;
-}
+// v1: a demo is written only when the band booked new-song work and spent a rehearsal slot on it.
+// The trigger now lives in the week engine (plan.songWork), so no activity creates a song by itself.
 
 export const SONG_BALANCE = PROTOTYPE_BALANCE.release;

@@ -7,7 +7,7 @@
 //     v1 save (from an earlier prototype build) may lack, and normalises band.lineup to the
 //     variable slot list shape. Runs on every load so persisted saves never break the UI.
 import { CORE_LINEUP_SLOTS, type SlotId } from '@/data/master';
-import { SAVE_SCHEMA_VERSION, type LineupSlotState, type SaveData } from './schema';
+import { EMPTY_SONG_WORK, isReleased, SAVE_SCHEMA_VERSION, type LineupSlotState, type SaveData } from './schema';
 
 const EMPTY_COUNTERS = { song: 0, session: 0, audition: 0, opportunity: 0, performance: 0, release: 0 };
 
@@ -44,7 +44,14 @@ export function ensureSaveDefaults(input: SaveData): SaveData {
     a.compareIds = a.compareIds ?? [];
     a.revealedInformation = a.revealedInformation ?? {};
   });
-  if (!s.weeklyPlan) s.weeklyPlan = { mainActions: [null, null, null], individualActions: [] };
+  if (!s.weeklyPlan) s.weeklyPlan = { mainActions: [null, null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } };
+  // Saves written before song work existed simply have no reservation this week.
+  s.weeklyPlan.songWork = { ...EMPTY_SONG_WORK, ...(s.weeklyPlan.songWork ?? {}) };
+  Object.values(s.songs ?? {}).forEach((song) => {
+    song.rehearsalCount = song.rehearsalCount ?? 0;
+    // A song released before recording existed was obviously finished; keep it releasable.
+    if (song.recordedWeek === undefined) song.recordedWeek = isReleased(song.status) ? song.createdWeek : null;
+  });
   return s;
 }
 

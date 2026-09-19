@@ -8,10 +8,11 @@ import {
   ACTIVITIES, CHARACTERS, PROTOTYPE_BALANCE, VENUES,
   type CharacterId, type MainActionId, type VisibleStats,
 } from '@/data/master';
+import { isRecorded, isReleased } from '../save/schema';
 import type { OpportunityState, SaveData, SongState } from '../save/schema';
 import { effectiveExperience, stageForExperience, statGainsForStage } from './growth';
 import { createRng, type Rng } from './rng';
-import { createSong, createsSong } from './song';
+import { createSong } from './song';
 import { achievedMilestones, careerTierFor } from './career';
 
 const B = PROTOTYPE_BALANCE;
@@ -48,6 +49,10 @@ export interface WeekOutcome {
   musicIncome: number;
   members: MemberWeekDelta[];
   newSong: (Omit<SongState, 'id'> & { composerId?: CharacterId }) | null;
+  /** Rehearsal slots spent preparing an existing song for the stage (v1 규칙 2). */
+  rehearsal: { songId: string; title: string; slots: number } | null;
+  /** The demo this week's recording slot turned into a releasable master (v1 규칙 3). */
+  recording: { songId: string; title: string; cost: number } | null;
   fansDelta: number;
   fanLoyaltyDelta: number;
   newOffers: Omit<OpportunityState, 'id'>[];
@@ -74,8 +79,10 @@ function projectedExpenseOf(save: SaveData): number {
   const sessions = Object.values(save.sessionHires).reduce((s, h) => s + h.weeklyCost, 0);
   // LIVE_SHOW is excluded: a booked-but-unplayed show must not bill the band, and a played show
   // already charged its production cost when it was performed (performanceActions.commit).
+  // RECORDING is excluded here too and added back by the engine only when a demo was actually
+  // recorded, so a slot that found no valid target bills nothing.
   const band = save.weeklyPlan.mainActions.reduce(
-    (s, a) => s + (a && a !== 'LIVE_SHOW' ? activityDef(a)?.cost ?? 0 : 0), 0);
+    (s, a) => s + (a && a !== 'LIVE_SHOW' && a !== 'RECORDING' ? activityDef(a)?.cost ?? 0 : 0), 0);
   const individual = save.weeklyPlan.individualActions.reduce((s, ia) => {
     const def = ACTIVITIES.find((x) => x.scope === 'INDIVIDUAL' && x.id === ia.actionId);
     return s + (def?.cost ?? 0);
@@ -86,6 +93,42 @@ function projectedExpenseOf(save: SaveData): number {
 /** Stamina softens fatigue; a tour engine like C10 burns far slower than C11. */
 function energyFactor(id: CharacterId): number {
   return 1 - (CHARACTERS[id].hiddenStats.stamina - 60) / 260;
+}
+
+/**
+ * Which song this week's rehearsal slots prepare (v1 규칙 2).
+ * The band follows the song it is about to open with unless the player picked another one.
+ * Only songs that already existed before this week can be a target (v1 규칙 5).
+ */
+export function resolveRehearsalTarget(save: SaveData): SongState | null {
+  const playable = Object.values(save.songs).filter((s) => !isReleased(s.status));
+  if (playable.length === 0) return null;
+  const chosen = save.weeklyPlan.songWork.rehearsalSongId
+    ? playable.find((s) => s.id === save.weeklyPlan.songWork.rehearsalSongId)
+    : undefined;
+  if (chosen) return chosen;
+  const opening = save.pendingPerformance?.openingSongId
+    ? playable.find((s) => s.id === save.pendingPerformance!.openingSongId)
+    : undefined;
+  if (opening) return opening;
+  // No show booked and no explicit pick: the newest song the band is still working on.
+  return [...playable].sort((a, b) => b.createdWeek - a.createdWeek)[0] ?? null;
+}
+
+/** A demo can be recorded when the room exists and the song is unreleased and not yet recorded. */
+export function recordingCandidates(save: SaveData): SongState[] {
+  if (!save.facilities.RECORDING_ROOM?.built) return [];
+  return Object.values(save.songs).filter((s) => !isReleased(s.status) && !isRecorded(s));
+}
+
+/** What this week's recording slot actually finishes, if anything (v1 규칙 3). */
+export function resolveRecording(save: SaveData): WeekOutcome['recording'] {
+  if (!save.weeklyPlan.mainActions.includes('RECORDING')) return null;
+  const targetId = save.weeklyPlan.songWork.recordingSongId;
+  if (!targetId) return null;
+  const song = recordingCandidates(save).find((s) => s.id === targetId);
+  if (!song) return null;
+  return { songId: song.id, title: song.title, cost: activityDef('RECORDING')?.cost ?? 0 };
 }
 
 export function simulateWeek(save: SaveData): WeekOutcome {
@@ -206,25 +249,68 @@ export function simulateWeek(save: SaveData): WeekOutcome {
     log.push({ kind: 'GROWTH', title: '성장', body: '이번 주 훈련이 실력으로 남았다.', effects: growthLines });
   }
 
-  // ---------------------------------------------------------------- song
-  const creativeAction = createsSong(plan.mainActions);
+  // ---------------------------------------------------------------- rehearsal slots -> song work
+  // v1 규칙 1: a demo is only written when the band booked new-song work from the Songs screen,
+  // and it costs one of this week's rehearsal slots.
+  // v1 규칙 2: every other rehearsal slot prepares an existing song for the stage.
+  // v1 규칙 5: targets are read from the plan as it stands now, so a song written this week can
+  // never be rehearsed or recorded in the same week.
+  const practiceSlots = actions.filter((a) => a === 'PRACTICE').length;
+  const wantsNewSong = plan.songWork.newSong && practiceSlots > 0 && members.length > 0;
+
   let newSong: WeekOutcome['newSong'] = null;
-  if (creativeAction && members.length > 0) {
-    const created = createSong({ save, origin: creativeAction, week, rng });
+  if (wantsNewSong) {
+    const created = createSong({ save, origin: 'PRACTICE', week, rng });
     if (created) {
       newSong = { ...created.song, composerId: created.composerId };
       log.push({
         kind: 'SONG',
         title: created.song.title,
-        body: created.song.originContext.includes('RECORDING_SESSION') ? '녹음 중에 형태를 잡았다.' : '합주 중에 형태를 잡았다.',
+        body: '합주 중에 형태를 잡았다.',
         effects: [
           `대중성 ${created.song.musicProfile.popularity}`,
           `음악성 ${created.song.musicProfile.artistry}`,
           `라이브 ${created.song.musicProfile.liveFit}`,
+          '아직 녹음 전이라 발매할 수 없다',
         ],
         assetKey: 'SONG_REVEAL',
       });
     }
+  } else if (plan.songWork.newSong && practiceSlots === 0) {
+    log.push({
+      kind: 'SONG', title: '새 곡 작업',
+      body: '새 곡을 쓰기로 해 놓고 합주를 넣지 않았다.',
+      effects: ['합주 슬롯이 있어야 데모가 나온다'],
+    });
+  }
+
+  const rehearsalSlots = practiceSlots - (wantsNewSong ? 1 : 0);
+  const rehearsalTarget = rehearsalSlots > 0 ? resolveRehearsalTarget(save) : null;
+  const rehearsal: WeekOutcome['rehearsal'] = rehearsalTarget
+    ? { songId: rehearsalTarget.id, title: rehearsalTarget.title, slots: rehearsalSlots }
+    : null;
+  if (rehearsal) {
+    log.push({
+      kind: 'SONG', title: `공연 준비 · ${rehearsal.title}`,
+      body: '무대에 올릴 곡을 반복해서 맞췄다.',
+      effects: [`합주 ${rehearsal.slots}회`, '숙련도 수치는 아직 정해지지 않았다'],
+    });
+  }
+
+  // ---------------------------------------------------------------- recording (v1 규칙 3)
+  const recording = resolveRecording(save);
+  if (recording) {
+    log.push({
+      kind: 'SONG', title: `녹음 완료 · ${recording.title}`,
+      body: '데모를 음원으로 다듬었다.',
+      effects: ['이제 발매할 수 있다'],
+    });
+  } else if (actions.includes('RECORDING')) {
+    log.push({
+      kind: 'SONG', title: '녹음',
+      body: '녹음할 곡을 정하지 않아 콘솔만 켜 두었다.',
+      effects: ['녹음 비용은 청구되지 않았다'],
+    });
   }
 
   // ---------------------------------------------------------------- fans from promotion
@@ -249,7 +335,7 @@ export function simulateWeek(save: SaveData): WeekOutcome {
   }
 
   // ---------------------------------------------------------------- money
-  const expense = projectedExpenseOf(save);
+  const expense = projectedExpenseOf(save) + (recording?.cost ?? 0);
   const musicIncome = Math.round(weeklyMusicIncome(save));
   if (musicIncome > 0) {
     log.push({ kind: 'RELEASE_INCOME', title: '음원 수익', body: '발매한 곡이 계속 재생되고 있다.', effects: [`+${musicIncome.toLocaleString('ko-KR')}원`] });
@@ -266,6 +352,8 @@ export function simulateWeek(save: SaveData): WeekOutcome {
     expense, musicIncome,
     members: [...deltas.values()],
     newSong,
+    rehearsal,
+    recording,
     fansDelta, fanLoyaltyDelta,
     newOffers,
     log,

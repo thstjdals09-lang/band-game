@@ -1,8 +1,9 @@
 // PHASE 2A growth loop tests: weekly simulation, growth, songs, releases, career and repeat shows.
 import { describe, expect, it } from 'vitest';
 
-import { ACTIVITIES, CHARACTERS, PROTOTYPE_BALANCE, RELEASE_FORMATS, VENUES } from '@/data/master';
+import { ACTIVITIES, CHARACTERS, PROTOTYPE_BALANCE, RELEASE_FORMATS, VENUES, type MainActionId } from '@/data/master';
 import { createNewGame } from '@/state/save/newGame';
+import { EMPTY_SONG_WORK, isRecorded } from '@/state/save/schema';
 import type { SaveData } from '@/state/save/schema';
 import { simulateWeek, weeklyMusicIncome, buildLiveOffers } from './weekEngine';
 import { projectedExpense } from '@/state/selectors';
@@ -14,6 +15,11 @@ import { createRng } from './rng';
 import { resolvePerformance, preparedness, scoreOf, gradeOf } from './performance';
 
 const B = PROTOTYPE_BALANCE;
+
+function writing(save: SaveData): SaveData {
+  save.weeklyPlan.songWork.newSong = true;
+  return save;
+}
 
 function band(): SaveData {
   const s = createNewGame('T');
@@ -42,7 +48,7 @@ function apply(save: SaveData, plan: SaveData['weeklyPlan']): SaveData {
   });
   next.world.week += 1;
   next.rng.streams.world += 1;
-  next.weeklyPlan = { mainActions: [null, null, null], individualActions: [] };
+  next.weeklyPlan = { mainActions: [null, null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } };
   return next;
 }
 
@@ -60,7 +66,7 @@ describe('week simulation is deterministic and single-shot', () => {
     const s = band();
     s.weeklyPlan.mainActions = ['PRACTICE', null, null];
     const first = simulateWeek(s);
-    const later = structuredClone(s);
+    const later = writing(structuredClone(s));
     later.rng.streams.world = 5;
     expect(simulateWeek(later).newSong?.title).toBeDefined();
     expect(first.rngPosition).not.toBe(simulateWeek(later).rngPosition);
@@ -80,9 +86,9 @@ describe('week simulation is deterministic and single-shot', () => {
 describe('activities have distinct effects', () => {
   it('practice trains, rest recovers, promotion brings fans', () => {
     const s = band();
-    const practice = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PRACTICE', null, null], individualActions: [] } });
-    const rest = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['REST', null, null], individualActions: [] } });
-    const promo = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', null, null], individualActions: [] } });
+    const practice = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PRACTICE', null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
+    const rest = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['REST', null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
+    const promo = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
 
     expect(practice.members[0].experience).toBeGreaterThan(0);
     expect(practice.members[0].energy).toBeLessThan(0);
@@ -97,8 +103,8 @@ describe('activities have distinct effects', () => {
     expect(practice.cost).toBe(0);
 
     const s = band();
-    const idle = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['REST', null, null], individualActions: [] } });
-    const trained = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PRACTICE', 'PRACTICE', 'PRACTICE'], individualActions: [] } });
+    const idle = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['REST', null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
+    const trained = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PRACTICE', 'PRACTICE', 'PRACTICE'], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
     // three practice slots cost exactly what an empty week costs: salaries and session fees only
     expect(trained.expense).toBe(idle.expense);
     expect(trained.members[0].experience).toBeGreaterThan(0);
@@ -108,7 +114,7 @@ describe('activities have distinct effects', () => {
     const s = band();
     const o = simulateWeek({
       ...s,
-      weeklyPlan: { mainActions: ['REST', null, null], individualActions: [{ characterId: 'C04', actionId: 'PRIVATE_LESSON' }] },
+      weeklyPlan: { mainActions: ['REST', null, null], individualActions: [{ characterId: 'C04', actionId: 'PRIVATE_LESSON' }], songWork: { ...EMPTY_SONG_WORK } },
     });
     const chaerin = o.members.find((m) => m.characterId === 'C04')!;
     const hajin = o.members.find((m) => m.characterId === 'C01')!;
@@ -140,7 +146,7 @@ describe('member growth follows the growth profile', () => {
   it('banks experience and raises the development stage', () => {
     let s = band();
     for (let i = 0; i < 8; i += 1) {
-      s = apply(s, { mainActions: ['PRACTICE', 'PRACTICE', 'REST'], individualActions: [] });
+      s = apply(s, { mainActions: ['PRACTICE', 'PRACTICE', 'REST'], individualActions: [], songWork: { ...EMPTY_SONG_WORK } });
     }
     const st = s.characterStates.C04!;
     expect(st.growth.experience).toBeGreaterThan(0);
@@ -150,7 +156,7 @@ describe('member growth follows the growth profile', () => {
   it('actually raises the visible stats above the master values', () => {
     let s = band();
     for (let i = 0; i < 10; i += 1) {
-      s = apply(s, { mainActions: ['PRACTICE', 'PRACTICE', 'REST'], individualActions: [] });
+      s = apply(s, { mainActions: ['PRACTICE', 'PRACTICE', 'REST'], individualActions: [], songWork: { ...EMPTY_SONG_WORK } });
     }
     const before = CHARACTERS.C04.visibleStats;
     const now = { ...before, ...s.characterStates.C04!.currentStats };
@@ -183,7 +189,7 @@ describe('song creation', () => {
     let s = band();
     for (let i = 0; i < 6; i += 1) {
       const next = structuredClone(s);
-      next.weeklyPlan = { mainActions: ['PRACTICE', null, null], individualActions: [] };
+      next.weeklyPlan = { mainActions: ['PRACTICE', null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK, newSong: true } };
       const o = simulateWeek(next);
       expect(o.newSong).not.toBeNull();
       next.songs[`song_${i}`] = { id: `song_${i}`, ...o.newSong! };
@@ -238,7 +244,7 @@ describe('song creation', () => {
     const titles: string[] = [];
     for (let i = 0; i < 12; i += 1) {
       const next = structuredClone(s);
-      next.weeklyPlan = { mainActions: ['PRACTICE', null, null], individualActions: [] };
+      next.weeklyPlan = { mainActions: ['PRACTICE', null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK, newSong: true } };
       const o = simulateWeek(next);
       titles.push(o.newSong!.title);
       next.songs[`song_${i}`] = { id: `song_${i}`, ...o.newSong! };
@@ -253,6 +259,146 @@ describe('song creation', () => {
     const dna = bandDna(band())!;
     const a = songDna(dna, 'C01');
     expect(dnaSimilarity(a, a)).toBeCloseTo(1);
+  });
+});
+
+// 4b ------------------------------------------------------------- v1 song work rules
+describe('v1 규칙 1: a demo needs a booking and a rehearsal slot', () => {
+  const plan = (actions: (MainActionId | null)[], songWork: Partial<SaveData['weeklyPlan']['songWork']> = {}): SaveData['weeklyPlan'] =>
+    ({ mainActions: actions, individualActions: [], songWork: { ...EMPTY_SONG_WORK, ...songWork } });
+
+  it('writes nothing when rehearsal was not booked for new-song work', () => {
+    const s = band();
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['PRACTICE', 'PRACTICE', 'PRACTICE']) });
+    expect(o.newSong).toBeNull();
+  });
+
+  it('writes a demo when the work is booked', () => {
+    const s = band();
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['PRACTICE', null, null], { newSong: true }) });
+    expect(o.newSong).not.toBeNull();
+    expect(o.newSong!.recordedWeek ?? null).toBeNull();
+  });
+
+  it('writes nothing when the booking has no rehearsal slot to spend', () => {
+    const s = band();
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['REST', 'PROMOTION', null], { newSong: true }) });
+    expect(o.newSong).toBeNull();
+    expect(o.log.some((l) => l.effects.join(' ').includes('합주 슬롯'))).toBe(true);
+  });
+
+  it('writes at most one demo a week however many slots are booked', () => {
+    const s = band();
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['PRACTICE', 'PRACTICE', 'PRACTICE'], { newSong: true }) });
+    expect(o.newSong).not.toBeNull();
+    expect(o.log.filter((l) => l.kind === 'SONG' && l.title === o.newSong!.title)).toHaveLength(1);
+  });
+
+  it('still trains the band on every rehearsal slot', () => {
+    const s = band();
+    const writingWeek = simulateWeek({ ...structuredClone(s), weeklyPlan: plan(['PRACTICE', 'PRACTICE', null], { newSong: true }) });
+    const plainWeek = simulateWeek({ ...structuredClone(s), weeklyPlan: plan(['PRACTICE', 'PRACTICE', null]) });
+    expect(writingWeek.members[0].experience).toBe(plainWeek.members[0].experience);
+  });
+});
+
+describe('v1 규칙 2: rehearsal that is not writing prepares a song', () => {
+  const plan = (actions: (MainActionId | null)[], songWork: Partial<SaveData['weeklyPlan']['songWork']> = {}): SaveData['weeklyPlan'] =>
+    ({ mainActions: actions, individualActions: [], songWork: { ...EMPTY_SONG_WORK, ...songWork } });
+
+  it('follows the opening song of the booked show', () => {
+    const s = band();
+    s.songs.a = song('A', 60); s.songs.b = song('B', 60);
+    s.pendingPerformance = { opportunityId: 'o', venueId: 'BASEMENT_CLUB', openingSongId: 'b', status: 'SCHEDULED' };
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['PRACTICE', null, null]) });
+    expect(o.rehearsal?.songId).toBe('b');
+  });
+
+  it('lets the player pin another song instead', () => {
+    const s = band();
+    s.songs.a = song('A', 60); s.songs.b = song('B', 60);
+    s.pendingPerformance = { opportunityId: 'o', venueId: 'BASEMENT_CLUB', openingSongId: 'b', status: 'SCHEDULED' };
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['PRACTICE', null, null], { rehearsalSongId: 'a' }) });
+    expect(o.rehearsal?.songId).toBe('a');
+  });
+
+  it('counts every rehearsal slot left after the writing slot', () => {
+    const s = band();
+    s.songs.a = song('A', 60);
+    const writingWeek = simulateWeek({ ...structuredClone(s), weeklyPlan: plan(['PRACTICE', 'PRACTICE', 'PRACTICE'], { newSong: true }) });
+    const plainWeek = simulateWeek({ ...structuredClone(s), weeklyPlan: plan(['PRACTICE', 'PRACTICE', 'PRACTICE']) });
+    expect(writingWeek.rehearsal?.slots).toBe(2);
+    expect(plainWeek.rehearsal?.slots).toBe(3);
+  });
+
+  it('never rehearses a released song', () => {
+    const s = band();
+    s.songs.a = { ...song('A', 60), status: 'RELEASED_SINGLE' };
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['PRACTICE', null, null]) });
+    expect(o.rehearsal).toBeNull();
+  });
+
+  it('cannot target the song written in the same week (v1 규칙 5)', () => {
+    const s = band();
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['PRACTICE', 'PRACTICE', null], { newSong: true }) });
+    expect(o.newSong).not.toBeNull();
+    expect(o.rehearsal).toBeNull(); // the band had no other song yet
+  });
+});
+
+describe('v1 규칙 3·4: recording turns a demo into a releasable master', () => {
+  const plan = (actions: (MainActionId | null)[], songWork: Partial<SaveData['weeklyPlan']['songWork']> = {}): SaveData['weeklyPlan'] =>
+    ({ mainActions: actions, individualActions: [], songWork: { ...EMPTY_SONG_WORK, ...songWork } });
+  const withRoom = () => {
+    const s = band();
+    s.facilities.RECORDING_ROOM = { facilityId: 'RECORDING_ROOM', level: 1, built: true };
+    s.songs.a = song('A', 60);
+    return s;
+  };
+
+  it('records the chosen demo and never writes a new song', () => {
+    const s = withRoom();
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['RECORDING', null, null], { recordingSongId: 'a' }) });
+    expect(o.recording?.songId).toBe('a');
+    expect(o.newSong).toBeNull();
+  });
+
+  it('does nothing and charges nothing without a target', () => {
+    const s = withRoom();
+    const idle = simulateWeek({ ...structuredClone(s), weeklyPlan: plan([null, null, null]) });
+    const o = simulateWeek({ ...structuredClone(s), weeklyPlan: plan(['RECORDING', null, null]) });
+    expect(o.recording).toBeNull();
+    expect(o.expense).toBe(idle.expense);
+  });
+
+  it('charges the recording cost only when a demo was finished', () => {
+    const s = withRoom();
+    const idle = simulateWeek({ ...structuredClone(s), weeklyPlan: plan([null, null, null]) });
+    const o = simulateWeek({ ...structuredClone(s), weeklyPlan: plan(['RECORDING', null, null], { recordingSongId: 'a' }) });
+    const cost = ACTIVITIES.find((x) => x.scope === 'BAND' && x.id === 'RECORDING')!.cost ?? 0;
+    expect(o.expense - idle.expense).toBe(cost);
+  });
+
+  it('refuses without the recording room', () => {
+    const s = band();
+    s.songs.a = song('A', 60);
+    const o = simulateWeek({ ...s, weeklyPlan: plan(['RECORDING', null, null], { recordingSongId: 'a' }) });
+    expect(o.recording).toBeNull();
+  });
+
+  it('refuses a song that is already recorded or released', () => {
+    const s = withRoom();
+    s.songs.a.recordedWeek = 2;
+    s.songs.b = { ...song('B', 60), status: 'RELEASED_SINGLE' };
+    expect(simulateWeek({ ...s, weeklyPlan: plan(['RECORDING', null, null], { recordingSongId: 'a' }) }).recording).toBeNull();
+    expect(simulateWeek({ ...s, weeklyPlan: plan(['RECORDING', null, null], { recordingSongId: 'b' }) }).recording).toBeNull();
+  });
+
+  it('marks an unrecorded song as not releasable', () => {
+    const s = withRoom();
+    expect(isRecorded(s.songs.a)).toBe(false);
+    s.songs.a.recordedWeek = 3;
+    expect(isRecorded(s.songs.a)).toBe(true);
   });
 });
 
@@ -326,8 +472,8 @@ describe('the live show slot is the show itself, not a decoration', () => {
   it('a booked but unplayed show costs nothing and tires nobody', () => {
     const s = band();
     s.pendingPerformance = { opportunityId: 'o', venueId: 'BASEMENT_CLUB', openingSongId: null, status: 'SCHEDULED' };
-    const idle = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: [null, null, null], individualActions: [] } });
-    const booked = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['LIVE_SHOW', null, null], individualActions: [] } });
+    const idle = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: [null, null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
+    const booked = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['LIVE_SHOW', null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
     expect(booked.expense).toBe(idle.expense);
     expect(booked.members[0].energy).toBe(0);
     expect(booked.members[0].stress).toBe(0);
@@ -363,9 +509,9 @@ describe('the live show slot is the show itself, not a decoration', () => {
 describe('promotion pays per slot', () => {
   it('scales fans with the number of promotion slots', () => {
     const s = band();
-    const one = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', null, null], individualActions: [] } });
-    const two = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', 'PROMOTION', null], individualActions: [] } });
-    const three = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', 'PROMOTION', 'PROMOTION'], individualActions: [] } });
+    const one = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
+    const two = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', 'PROMOTION', null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
+    const three = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', 'PROMOTION', 'PROMOTION'], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
     expect(two.fansDelta).toBe(one.fansDelta * 2);
     expect(three.fansDelta).toBe(one.fansDelta * 3);
     expect(three.fanLoyaltyDelta).toBe(one.fanLoyaltyDelta * 3);
@@ -373,15 +519,15 @@ describe('promotion pays per slot', () => {
 
   it('keeps the per-slot value unchanged', () => {
     const s = band();
-    const one = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', null, null], individualActions: [] } });
+    const one = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
     const starPower = (CHARACTERS.C01.visibleStats.star + CHARACTERS.C04.visibleStats.star) / 2;
     expect(one.fansDelta).toBe(Math.round(B.promotion.baseFans + starPower * B.promotion.starPowerFactor));
   });
 
   it('still costs and tires per slot', () => {
     const s = band();
-    const one = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', null, null], individualActions: [] } });
-    const three = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', 'PROMOTION', 'PROMOTION'], individualActions: [] } });
+    const one = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', null, null], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
+    const three = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', 'PROMOTION', 'PROMOTION'], individualActions: [], songWork: { ...EMPTY_SONG_WORK } } });
     expect(three.members[0].stress).toBeCloseTo(one.members[0].stress * 3, 5);
   });
 });
@@ -485,8 +631,9 @@ describe('career progression and facility unlocks', () => {
 
 // ---------------------------------------------------------------- helpers
 function song(title: string, popularity: number, liveFit = 50): SaveData['songs'][string] {
+  // the map key the tests use is the lowercased title, so keep id and key in step
   return {
-    id: title, title, createdWeek: 1,
+    id: title.toLowerCase(), title, createdWeek: 1,
     contributors: { composer: ['C01'], lyrics: ['C01'] },
     originContext: ['BAND_PRACTICE'],
     musicProfile: { popularity, artistry: 50, fanFit: 50, liveFit },

@@ -43,8 +43,18 @@ async function worldTap(id) {
   await page.waitForTimeout(160);
 }
 
+async function bookNewSong() {
+  await page.goto(BASE + '#/band/songs');
+  await page.waitForTimeout(280);
+  if ((await text()).includes('새 곡 작업 예약')) {
+    await page.getByText('새 곡 작업 예약').first().click();
+    await page.waitForTimeout(200);
+  }
+}
+
 /** Fill the 3 band slots with the named activities, then run the week to the end. */
-async function playWeek(actions, { name } = {}) {
+async function playWeek(actions, { name, write = false } = {}) {
+  if (write) await bookNewSong();
   await page.goto(BASE + '#/schedule');
   await page.waitForSelector('.actionslot');
   for (let i = 0; i < actions.length; i += 1) {
@@ -141,7 +151,7 @@ async function playUntilOffer(max = 4) {
   for (let i = 0; i < max; i += 1) {
     const sv = await save();
     if (openOffers(sv).length > 0) return i;
-    await playWeek(['합주 연습', '합주 연습', '홍보']);
+    await playWeek(['합주 연습', '합주 연습', '홍보'], { write: true });
   }
   const sv = await save();
   if (openOffers(sv).length === 0) throw new Error(`no live offer after ${max} extra weeks`);
@@ -174,7 +184,7 @@ try {
 
   // ---------------- WEEK 1: 합주 연습 x2 + 홍보
   const before1 = await save();
-  await playWeek(['합주 연습', '합주 연습', '홍보'], { name: 'TEST BAND' });
+  await playWeek(['합주 연습', '합주 연습', '홍보'], { name: 'TEST BAND', write: true });
   const w1 = await save();
   await expect(w1.world.week === 2, 'week advanced 1 -> 2');
   await expect(Object.keys(w1.songs).length === 1, 'week 1 produced a song');
@@ -198,7 +208,7 @@ try {
   await expect(Object.keys(w2.songs).length === 1, 'a rest week writes no song — songs come from practice/recording');
 
   // ---------------- WEEK 3: back to practice, second song, first offer
-  await playWeek(['합주 연습', '합주 연습', '홍보']);
+  await playWeek(['합주 연습', '합주 연습', '홍보'], { write: true });
   const w3a = await save();
   await expect(w3a.world.week === 4, 'week advanced 3 -> 4');
   await expect(Object.keys(w3a.songs).length === 2, 'second song written');
@@ -225,13 +235,7 @@ try {
   await page.waitForTimeout(200);
   await clean('SONGS');
   await expect(!(await text()).includes('첫 공연 후 발매 가능'), 'release unlocked after the first show');
-  await tapText('싱글로 낸다');
-  await page.waitForTimeout(220);
-  const rel = await save();
-  await expect(Object.keys(rel.releases).length === 1, 'single released');
-  await expect(rel.band.metrics.fans > a1.band.metrics.fans, 'release brought fans');
-  const releasedSong = Object.values(rel.songs).find((s) => s.status === 'RELEASED_SINGLE');
-  await expect(!!releasedSong, 'song marked released');
+  await expect((await text()).includes('녹음해야 발매할 수 있다'), 'an unrecorded demo still cannot be released');
 
   // ---------------- WEEK 3: recording room build + streaming income
   await page.goto(BASE + '#/management/facilities');
@@ -248,16 +252,40 @@ try {
   const built = await save();
   await expect(built.facilities.RECORDING_ROOM?.built === true, 'recording room built');
 
+  // v1: recording finishes an existing demo instead of writing a new song.
+  const demo = Object.values(built.songs).find((x) => typeof x.recordedWeek !== 'number');
+  await page.goto(BASE + '#/band/songs');
+  await page.waitForTimeout(280);
+  await page.locator('.rowcard--stack')
+    .filter({ has: page.locator('.rowcard__title', { hasText: new RegExp(`^${demo.title}$`) }) })
+    .first().locator('.btn', { hasText: '이번 주에 녹음한다' }).first().click();
+  await page.waitForTimeout(250);
   const w3sum = await playWeek(['녹음', '합주 연습', '홍보']);
   const w3 = await save();
   await expect(w3.world.week === built.world.week + 1, 'the recording week advanced the clock by one');
-  await expect(w3sum.includes('음원 수익'), 'streaming income paid in the week summary');
-  await expect(Object.keys(w3.songs).length === Object.keys(built.songs).length + 1,
-    `the recording week added another song (${Object.keys(w3.songs).length} total)`);
-  const recorded = Object.values(w3.songs).find((x) => x.originContext.includes('RECORDING_SESSION'));
-  await expect(!!recorded, 'the new song was born in the recording room');
+  void w3sum;
+  await expect(typeof w3.songs[demo.id].recordedWeek === 'number', 'the demo came out of the recording room finished');
+  await expect(Object.keys(w3.songs).length === Object.keys(built.songs).length, 'recording wrote no new song');
+
+  // ---------------- release the finished master
+  const beforeRelease = await save();
+  await page.goto(BASE + '#/band/songs');
+  await page.waitForTimeout(280);
+  await clean('SONGS');
+  await page.locator('.rowcard--stack')
+    .filter({ has: page.locator('.rowcard__title', { hasText: new RegExp(`^${demo.title}$`) }) })
+    .first().locator('.btn', { hasText: '싱글로 낸다' }).first().click();
+  await page.waitForTimeout(300);
+  const rel = await save();
+  await expect(Object.keys(rel.releases).length === 1, 'single released once the song was recorded');
+  await expect(rel.band.metrics.fans > beforeRelease.band.metrics.fans, 'release brought fans');
+  await expect(rel.songs[demo.id].status === 'RELEASED_SINGLE', 'song marked released');
 
   // ---------------- WEEK 4: the loop repeats — a SECOND show offer must arrive
+  // streaming income starts the week after the release
+  const afterReleaseWeek = await playWeek(['합주 연습', '홍보', null]);
+  await expect(afterReleaseWeek.includes('음원 수익'), 'streaming income paid in the week after the release');
+
   const waited2 = await playUntilOffer(4);
   const w4 = await save();
   await expect(w4.world.week > w3.world.week, 'more weeks played after the first show');
