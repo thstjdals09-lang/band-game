@@ -5,3 +5,6 @@ dist/
 .DS_Store
 .env
 .env.*
+
+# 승인 원본 아트(마스터/액션 시트)는 로컬에만 둔다. 게임에 들어가는 것은 src/assets/characters/의 파생본이다.
+assets_source/

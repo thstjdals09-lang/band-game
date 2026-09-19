@@ -422,7 +422,7 @@ describe('test sprite placement', () => {
       viewport: { width: 390, height: 844, insets },
     });
     const node = scene.nodes.find((n) => n.id === 'character:C01')!;
-    expect(node.sprite?.assetKey).toBe('CHARACTER_C01_TEST_FRONT');
+    expect(node.sprite?.assetKey).toBe('CHARACTER_C01_FULL');
     expect(node.anchor).toEqual(spawnForSlot(BASECAMP_STAGE_1, 'VOCAL')!.pos);
   });
 

@@ -6,8 +6,6 @@
 // Visual Bible v1.0: full-body HD pixel character = Source of Truth; Bust/Portrait/Thumbnail are DERIVED from it
 // (never separately illustrated). Keys keep that derivation explicit: character_C01_full -> _bust -> _thumb.
 
-import c01TestFront from './world/C01_TEST_FRONT.png';
-
 export type AssetKey = string;
 
 export const assetRegistry: Record<AssetKey, string | null> = {
@@ -46,8 +44,14 @@ for (const id of CHARACTER_IDS) {
   assetRegistry[`CHARACTER_${id}_THUMB`] = null;
 }
 
-// WORLD VISUAL FIT TEST stand-in (real image, development only - see world/assets/testSprite.ts).
-assetRegistry.CHARACTER_C01_TEST_FRONT = c01TestFront;
+// Approved character art. `characters/<ID>_<VARIANT>.png` files are derived from the approved
+// MASTER turnaround sheets in assets_source/ (front view only; BUST and THUMB are crops of FULL,
+// never separately illustrated). Dropping a file in that folder registers it - no code change.
+const characterArt = import.meta.glob('./characters/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+for (const [path, url] of Object.entries(characterArt)) {
+  const match = /\/(C\d{2})_(FULL|BUST|THUMB)\.png$/.exec(path);
+  if (match) assetRegistry[`CHARACTER_${match[1]}_${match[2]}`] = url;
+}
 
 export function characterAssetKey(id: string, variant: 'FULL' | 'BUST' | 'THUMB' = 'FULL'): AssetKey {
   return `CHARACTER_${id}_${variant}`;
