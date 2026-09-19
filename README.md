@@ -15,6 +15,7 @@ npm install
 npm run dev        # http://localhost:5173/band-game/  (--host: 같은 Wi-Fi의 폰에서 접속 가능)
 npm run build      # tsc --noEmit + vite build → dist/
 npm run preview
+npm run test       # vitest (world 단위 테스트)
 npm run deploy     # dist/ → gh-pages 브랜치 → GitHub Pages
 ```
 
@@ -27,7 +28,12 @@ src/
   components/   Panel, Dock(5개 고정), Hud, PlaceholderAsset, CharacterVisual, ui primitives
   data/master/  Character Master v1.1 원본 데이터 (C01~C15), traits, contractProfiles, synergies, events, facilities/venues/slots
   state/        save/schema.ts (SaveData v1), save/newGame.ts, store.ts (zustand persist), selectors.ts (파생값), actions/ (유일한 mutation 지점)
-  world/        WorldScene 계약 + DomWorldView(placeholder 렌더러) + BasecampWorld. Phaser 렌더러로 교체 가능한 경계
+  world/        논리 아이소메트릭 월드
+    iso/        coordinates / projection / depth / occupancy / camera / hitTest (픽셀 무관 수학)
+    maps/       basecampStage1 + Stage2 MapPatch (논리 그리드 맵 데이터)
+    objects/    footprint / anchor / state variant 정의 + SaveData 바인딩
+    renderer/   WorldScene 계약 + SVG 디버그 렌더러 (Phaser로 교체 가능)
+    assets/     스프라이트 계약 (footprint / anchor / depth anchor / state)
   screens/      start / home / band / audition / schedule / performance / management / outside / future / dev
 ```
 
@@ -45,7 +51,9 @@ src/
 
 NEW GAME → BASECAMP → AUDITION → Candidate Detail → (Shortlist / Compare) → Contract → BAND / Lineup → Session Hire → SCHEDULE → NEXT WEEK → Week Resolution (→ 밴드 이름 이벤트 / NEW SONG) → BASECAMP 변화 → Opportunity Inbox → Performance Prep → PERFORMANCE → Choice → RESULT → MANAGEMENT / FACILITIES → BUILD → Expanded Basecamp
 
-QA용 테스트 프리셋(A~H)은 `/dev`에서 적용한다. 플레이어 UI에서는 접근할 수 없다.
+QA용 테스트 프리셋(A~H)은 `/dev`에서 적용한다. 아이소메트릭 월드 검수는 `/dev/world`. 플레이어 UI에서는 둘 다 접근할 수 없다.
+
+HOME은 한 장짜리 배경이 아니라 그리드 좌표를 가진 타일 월드다. 오브젝트는 기기에 관계없이 같은 맵 좌표에 있고 카메라 zoom/offset만 변한다. 에셋 규격은 `docs/BASECAMP_STAGE1_ASSET_PRODUCTION_SPEC.md` 참조.
 
 시뮬레이션 수치는 전부 placeholder다. 밸런스 값은 `src/data/master/prototypeBalance.ts`에 격리되어 있으며 Source of Truth가 아니다(`TODO(PHASE2 engine)` / `TODO(balance)`).
 

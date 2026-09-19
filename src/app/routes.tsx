@@ -31,6 +31,7 @@ import {
   RivalsScreen, RankingsScreen, LabelsScreen, WorldOverseasScreen, StaffScreen, EquipmentScreen,
 } from '@/screens/future/FutureScreens';
 import { DevToolsScreen } from '@/screens/dev/DevTools';
+import { WorldLabScreen } from '@/screens/dev/WorldLab';
 
 export type DockId = 'band' | 'schedule' | 'audition' | 'management' | 'outside';
 export type ScreenLayer = 'world' | 'panel' | 'immersive';
@@ -109,6 +110,7 @@ export const ROUTES: RouteDef[] = [
 
   // DEV (prototype only)
   { path: '/dev', meta: { layer: 'panel', title: 'DEV TOOLS', status: 'implemented', requiresSave: false }, element: <DevToolsScreen /> },
+  { path: '/dev/world', meta: { layer: 'panel', title: 'ISOMETRIC WORLD LAB', status: 'implemented' }, element: <WorldLabScreen /> },
 ];
 
 const FALLBACK: RouteMeta = { layer: 'panel', title: '', status: 'shell' };

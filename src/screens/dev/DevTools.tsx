@@ -34,6 +34,16 @@ export function DevToolsScreen() {
         </div>
       </Section>
 
+      <Section title="World">
+        <button className="rowcard rowcard--tap" onClick={() => go('/dev/world')}>
+          <span className="grow">
+            <div className="rowcard__title">ISOMETRIC WORLD LAB</div>
+            <div className="rowcard__meta">grid / footprint / depth / camera 검수</div>
+          </span>
+          <span className="rowcard__chev">›</span>
+        </button>
+      </Section>
+
       <Section title="Test presets">
         {PRESETS.map((p) => (
           <div key={p.id} className="rowcard rowcard--stack">

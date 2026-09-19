@@ -37,6 +37,18 @@
 - **버그 수정**: 진단 모드의 asset key 오버레이가 패널 위 탭을 가로채던 문제(z-index/pointer-events). 월드 레이어는 패널이 열리면 `pointer-events: none`.
 - **검증**: tsc / build 통과. Playwright 스모크가 Prototype Spine 전 구간 + 30개 화면 개발문자열 검사 + 터치 타깃 40px 검사 + 프리셋 A/B/E/F/H + 진단 토글 + 구형 세이브 마이그레이션까지 통과, 콘솔 에러 0.
 
+### 2026-09-19 — WORLD FOUNDATION 1: True isometric tile world
+- HOME을 스크린 % 배치에서 **논리 아이소메트릭 타일 월드**로 교체. 데이터 흐름: maps → iso → objects → renderer → React wrapper.
+- `world/iso/`: coordinates / projection / depth / occupancy / camera / hitTest. 픽셀과 무관한 논리 좌표가 기준이고 tile render 크기는 PROTOTYPE RENDER VARIABLE.
+- `world/maps/`: Stage 1 지하 연습실(13×8 논리 맵), Stage 2는 **MapPatch**로 부분 확장(배경 이미지 교체 아님).
+- `world/objects/`: footprint / anchor / depth anchor / interaction tile / state variant 정의 + SaveData에서 오브젝트 state 바인딩(새 시설 시스템 없음).
+- `world/renderer/`: WorldScene 계약 + SVG DebugIsoWorldView. 드로우 순서는 월드 좌표에서 계산하고 z-index 하드코딩 없음. Phaser로 교체 가능.
+- 캐릭터는 spawn point(그리드 좌표)에 배치. 이동/패스파인딩은 구현하지 않음.
+- 카메라: 맵은 하나, 기기별로 zoom/offset만 변한다. `fitCameraFocused`가 탭 가능한 오브젝트를 safe viewport 안에 보장하면서 최대로 확대한다.
+- `/dev/world` ISOMETRIC WORLD LAB 추가(Stage 전환, 오버레이 7종, viewport preset 5종, draw order/occupancy 리포트).
+- vitest 도입, `src/world/world.test.ts` 34케이스. 기존 Playwright 스모크도 유지.
+- 에셋 제작 사양: `docs/BASECAMP_STAGE1_ASSET_PRODUCTION_SPEC.md`.
+
 ## 판단 필요 / TODO (문서에 없거나 모호한 항목)
 
 - ~~Growth Curve 표기~~ 승인됨(PHASE 1.1): C05 = HIGH_START_SLOW, C13 = HIGH_START.
@@ -53,3 +65,7 @@
 - **Performance 순간 선택 텍스트**: 사용자 지시의 민채린 솔로 예시를 GUITAR 슬롯 멤버 이름으로 치환해 사용. 실제 대사/이벤트 정의는 VS 콘텐츠 단계.
 - **Display 폰트/아이콘/팔레트 hex**: Implementation Lock 아님. 브러시·마커 Display 폰트와 Dock 아이콘 에셋 없음 → 시스템 폰트 + 글자 placeholder. `styles/tokens.css`는 PROTOTYPE APPROXIMATION.
 - **Dev Tools(`/dev`)**: IA에 없는 프로토타입 검수용 화면. 출시 빌드에서 제거 대상.
+- **방 크기와 세로 여백**: 직사각형 방은 2:1 다이아몬드로 투영되므로 세로 화면에서는 위아래 여백이 남는다. 현재는 모든 탭 오브젝트를 보장하는 범위에서 최대 확대한다. 맵 타일 수 축소 / 가장자리 크롭 / 세로 패닝 중 어느 방향을 택할지 아트 방향 확정 후 결정 필요.
+- **Stage 1 타일 좌표**: 현재 배치는 임시값(FINAL ART POSITION 아님). 승인된 방 아트가 나오면 재작성한다.
+- **tile render 크기 128×64**: PROTOTYPE RENDER VARIABLE. 2:1 비율만 규칙이고 절대값은 미확정.
+- **캐릭터 가림 처리**: depth order는 완성됐으나 실제 sprite masking은 아트 도착 후 검증 필요.

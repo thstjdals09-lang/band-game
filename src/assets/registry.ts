@@ -48,6 +48,11 @@ export function characterAssetKey(id: string, variant: 'FULL' | 'BUST' | 'THUMB'
   return `CHARACTER_${id}_${variant}`;
 }
 
+/** Register asset keys declared elsewhere (world tiles / object state variants). */
+export function ensureAssetKeys(keys: AssetKey[]): void {
+  keys.forEach((k) => { if (!(k in assetRegistry)) assetRegistry[k] = null; });
+}
+
 export function resolveAsset(key: AssetKey): string | null {
   return assetRegistry[key] ?? null;
 }
