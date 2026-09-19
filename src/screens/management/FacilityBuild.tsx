@@ -1,7 +1,7 @@
 // FACILITY BUILD confirm -> short Construction Reveal -> Basecamp returns expanded (IA §22, §25: cancel -> Facilities).
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { FACILITIES } from '@/data/master';
+import { FACILITIES, PROTOTYPE_BALANCE } from '@/data/master';
 import { useSave } from '@/state/store';
 import { facilityAvailability } from '@/state/selectors';
 import { facilityActions } from '@/state/actions';
@@ -20,7 +20,7 @@ export function FacilityBuildScreen() {
 
   useEffect(() => {
     if (phase !== 'CONSTRUCTING') return;
-    const t = setTimeout(() => setPhase('DONE'), 1400); // short reveal (duration = Prototype Variable)
+    const t = setTimeout(() => setPhase('DONE'), PROTOTYPE_BALANCE.facility.constructionRevealMs);
     return () => clearTimeout(t);
   }, [phase]);
 

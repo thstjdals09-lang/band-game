@@ -1,6 +1,6 @@
-// Facilities / Venues / Lineup slots / Activities / Session templates / Music tags.
+// Facilities / Venues / Lineup slot definitions / Activities / Session templates / Music tags.
 import type {
-  ActivityDefinition, FacilityDefinition, LineupSlotDefinition, SessionTemplate, VenueDefinition,
+  ActivityDefinition, FacilityDefinition, LineupSlotDefinition, SessionTemplate, SlotId, VenueDefinition,
 } from './types';
 
 // GDD v0.2 §05: 처음은 작은 지하 연습실. 성장하면서 녹음실·사무실·라운지·스타일링룸·장비 공간 등이 확장된다.
@@ -35,20 +35,31 @@ export const FACILITIES: Record<string, FacilityDefinition> = {
 };
 
 // IA v1.1 §6 example: "Basement Club 공연 제안". Visual Bible Hero 04: "MOONLIGHT CLUB - LIVE HOUSE".
+// TODO(balance): capacity.
 export const VENUES: Record<string, VenueDefinition> = {
   BASEMENT_CLUB: { id: 'BASEMENT_CLUB', name: 'Basement Club', kind: 'CLUB', capacity: 120, region: 'HOME_CITY' },
   MOONLIGHT_CLUB: { id: 'MOONLIGHT_CLUB', name: 'Moonlight Club', kind: 'LIVE_HOUSE', capacity: 300, region: 'HOME_CITY' },
 };
 
-// TODO(IA): IA §7 example shows 4 slots (VOCAL/GUITAR/BASS/DRUMS); Visual Bible Hero 03 shows 5/5 incl. KEYBOARD.
-// Prototype uses 5 slots; slot count is a Prototype Variable to confirm.
-export const LINEUP_SLOTS: LineupSlotDefinition[] = [
-  { id: 'VOCAL', label: 'VOCAL', compatiblePositions: ['Vocal', 'Multi'] },
-  { id: 'GUITAR', label: 'GUITAR', compatiblePositions: ['Guitar', 'Lead Guitar', 'Multi'] },
-  { id: 'BASS', label: 'BASS', compatiblePositions: ['Bass', 'Multi'] },
-  { id: 'DRUMS', label: 'DRUMS', compatiblePositions: ['Drums', 'Perc.', 'Multi'] },
-  { id: 'KEYS', label: 'KEYS', compatiblePositions: ['Keys', 'Synth', 'Producer', 'Multi'] },
-];
+// ---------------------------------------------------------------------------------------------
+// Variable slot architecture (PHASE 1.1 review):
+// - A band's lineup is an ORDERED LIST of slots stored in SaveData (band.lineup), not a fixed record.
+// - Vertical Slice default = the 4 core positions (IA §7): VOCAL / GUITAR / BASS / DRUMS.
+// - Additional positions (KEYS, ...) are defined here so they can be ADDED to a band's lineup later
+//   through band composition / growth features. Hero Screen "5/5" is a visual example, not a rule.
+// - 초반 2명 영입 + 빈 포지션은 Session 보충 (IA §11) is supported: any slot can hold MEMBER | SESSION | null.
+// ---------------------------------------------------------------------------------------------
+export const SLOT_DEFINITIONS: Record<SlotId, LineupSlotDefinition> = {
+  VOCAL: { id: 'VOCAL', label: 'VOCAL', core: true, compatiblePositions: ['Vocal', 'Multi'] },
+  GUITAR: { id: 'GUITAR', label: 'GUITAR', core: true, compatiblePositions: ['Guitar', 'Lead Guitar', 'Multi'] },
+  BASS: { id: 'BASS', label: 'BASS', core: true, compatiblePositions: ['Bass', 'Multi'] },
+  DRUMS: { id: 'DRUMS', label: 'DRUMS', core: true, compatiblePositions: ['Drums', 'Perc.', 'Multi'] },
+  // Expansion position. TODO(design): Synth / Producer -> KEYS mapping is a prototype assumption.
+  KEYS: { id: 'KEYS', label: 'KEYS', core: false, compatiblePositions: ['Keys', 'Synth', 'Producer', 'Multi'] },
+};
+
+/** Default lineup slots for a new band in the Vertical Slice. */
+export const CORE_LINEUP_SLOTS: SlotId[] = ['VOCAL', 'GUITAR', 'BASS', 'DRUMS'];
 
 // IA v1.1 §15: Main Action 예: Practice / Promotion / Recording / Rest / Live Show.
 // Individual Action 예: 개인 레슨 / 휴식 / 인터뷰. TODO(balance): cost values are placeholders.

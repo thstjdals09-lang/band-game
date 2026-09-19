@@ -21,16 +21,23 @@
 - 전 route/screen shell 생성 및 네비게이션 연결 (Prototype Spine 전체 클릭 가능, 시뮬레이션은 placeholder).
 - GitHub Pages 배포: gh 토큰에 workflow 스코프가 없어 Actions 워크플로 대신 `npm run deploy`(gh-pages 브랜치)로 배포. Playwright(로컬 Chrome) 스모크 테스트로 Prototype Spine 전 구간 통과 확인.
 
+### 2026-09-19 — PHASE 1.1: Structure Check (검수 반영, 신규 기능 없음)
+- Lineup을 고정 5슬롯 Record에서 **가변 슬롯 리스트**(`band.lineup: LineupSlotState[]`)로 변경. VS 기본은 core 4포지션(VOCAL/GUITAR/BASS/DRUMS). KEYS 등은 `SLOT_DEFINITIONS`에 expansion(`core: false`)으로 정의하고 `bandActions.addLineupSlot`은 구조만 준비(UI 없음). 세션 보충/역할 변경은 슬롯 index 기반.
+- 승인된 Save 필드(band.lineup / shortlistIds / compareIds / opportunities / pendingPerformance / counters)를 SaveData v1 정식 필드로 정리. schemaVersion 유지. `save/migrate.ts`의 `ensureSaveDefaults`가 매 로드마다 누락 필드를 채우고 구형 lineup Record를 리스트로 변환(store `merge`에서 호출).
+- 밸런스 수치를 `src/data/master/prototypeBalance.ts`(전부 TODO(balance))로 격리. Hero HUD 값(₩3,000,000 / 100 / 10)은 시각용 placeholder임을 명시.
+- Debut Showcase 스크립트: 창작 주간마다 데모 1곡, `minSongsForDebut = 2` 도달 후에만 Basement Club 제안 생성. Prep / Performance는 2곡 미만이면 시작 불가. 첫 공연은 Opening Song 선택만 제공, full Setlist Editor는 이후 기능.
+- `styles/tokens.css`를 "PROTOTYPE APPROXIMATION - NOT Implementation Lock"으로 명시.
+- 승인 반영: C05 = HIGH_START_SLOW, C13 = HIGH_START. Band Name Event placeholder chips + 자유 입력 유지. gh-pages 배포 유지(Actions 미추가).
+
 ## 판단 필요 / TODO (문서에 없거나 모호한 항목)
 
-- **Growth Curve 표기**: Character Master p.7은 C05·C13 모두 "HIGH START"로 축약하고 각주에 `HIGH_START_SLOW/HIGH_START`를 병기. 현재 C05=HIGH_START_SLOW, C13=HIGH_START로 가정. 확인 필요.
-- **Lineup 슬롯 수**: IA §7 예시는 VOCAL/GUITAR/BASS/DRUMS 4슬롯, Visual Bible Hero 03은 5/5(키보드 포함). 현재 5슬롯(`LINEUP_SLOTS`).
-- **SaveData 추가 필드**: 문서 SaveData 목록에 없지만 IA 구현에 필요해서 추가 — `band.lineup`(역할 배치), `auditions[].shortlistIds/compareIds`, `opportunities`(Inbox), `pendingPerformance`, `counters`. 스키마 v1에 포함할지 확인 필요.
-- **계약 수치**: Contract burden/salary/duration은 placeholder. 문서 앵커는 윤하진 `$$`(Hero 02), C13 salary 900000뿐.
-- **시작 수치**: Cash ₩3,000,000 / Fans 100 / Fame 10 (Hero 02 HUD 기준). IA 예시(₩420K / Fans 420 / W04)와 다름 — 밸런스 변수.
-- **밴드 이름 이벤트**: IA §26의 "멤버 성향 기반 이름 제안"은 콘텐츠 생성이 필요해 placeholder 칩 + 자유 입력만 구현.
-- **첫 공연 곡 수**: 현재 Week Resolution 1회로 데모 1곡 생성 → Debut Showcase는 1곡으로도 진행 가능. "최소 2곡" 템포는 Prototype 검증 대상(IA §17).
+- ~~Growth Curve 표기~~ 승인됨(PHASE 1.1): C05 = HIGH_START_SLOW, C13 = HIGH_START.
+- ~~Lineup 슬롯 수~~ 해결(PHASE 1.1): 가변 슬롯 구조, VS 기본 core 4포지션. 남은 설계 판단: 동일 포지션 중복 슬롯 허용 여부, 추가 포지션 해금 조건(PHASE 2+).
+- ~~SaveData 추가 필드~~ 승인됨(PHASE 1.1): SaveData v1 정식 prototype 필드, schemaVersion 유지.
+- **Synth / Producer → KEYS 슬롯 매핑**: 프로토타입 가정 (`SLOT_DEFINITIONS`).
+- **밸런스 전부 TODO(balance)**: 시작 자금/Fans/Fame, 계약 금액, 시설 가격, 세션 비용, 공연 수익 등은 `prototypeBalance.ts` 및 각 master 파일의 placeholder. Hero HUD 값은 Source of Truth가 아니다.
+- **밴드 이름 이벤트**: IA §26의 "멤버 성향 기반 이름 제안"은 이후 구현. 현재 placeholder 칩 + 자유 입력(승인됨).
+- ~~첫 공연 곡 수~~ 해결(PHASE 1.1): 2곡 확보 후 공연 제안. 창작 주간당 1곡 템포는 플레이테스트 변수.
 - **Performance 순간 선택 텍스트**: 사용자 지시의 민채린 솔로 예시를 GUITAR 슬롯 멤버 이름으로 치환해 사용. 실제 대사/이벤트 정의는 VS 콘텐츠 단계.
-- **Display 폰트/아이콘**: 브러시·마커 계열 Display 폰트와 Dock 아이콘 에셋 없음 → 시스템 폰트 + 글자 placeholder.
-- **팔레트 hex**: Visual Bible은 색을 이름으로만 정의 → `styles/tokens.css`의 hex는 근사값(Prototype Variable).
+- **Display 폰트/아이콘/팔레트 hex**: Implementation Lock 아님. 브러시·마커 Display 폰트와 Dock 아이콘 에셋 없음 → 시스템 폰트 + 글자 placeholder. `styles/tokens.css`는 PROTOTYPE APPROXIMATION.
 - **Dev Tools(`/dev`)**: IA에 없는 프로토타입 검수용 화면. 출시 빌드에서 제거 대상.

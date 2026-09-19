@@ -1,15 +1,17 @@
 // PERFORMANCE (IA §19, Visual Bible Hero 04): full-screen stage, no dock / no management HUD.
 // Not a rhythm game: simulation runs, player only answers 1~2 moment choices. Back locked.
 import { useState } from 'react';
-import { CHARACTERS, VENUES } from '@/data/master';
+import { CHARACTERS, PROTOTYPE_BALANCE, VENUES } from '@/data/master';
 import { useSave } from '@/state/store';
-import { lineupView, songList } from '@/state/selectors';
+import { debutSongRequirement, lineupView, songList } from '@/state/selectors';
 import { performanceActions } from '@/state/actions';
 import { useGameNav, useLockBack } from '@/app/navigation';
 import { PlaceholderAsset } from '@/components/PlaceholderAsset';
 import { CharacterVisual } from '@/components/CharacterVisual';
 import { Btn, EmptyState } from '@/components/ui';
 import type { PerformanceSnapshot } from '@/state/save/schema';
+
+const B = PROTOTYPE_BALANCE.performance;
 
 type Beat =
   | { kind: 'INTRO' }
@@ -25,8 +27,10 @@ export function PerformanceScreen() {
   const pending = save.pendingPerformance;
   const venue = pending ? VENUES[pending.venueId] : undefined;
   const songs = songList(save);
-  const opening = songs.find((s) => s.id === pending?.openingSongId) ?? songs[0];
-  const setlist = opening ? [opening, ...songs.filter((s) => s.id !== opening.id)].slice(0, 2) : [];
+  const req = debutSongRequirement(save);
+  const opening = songs.find((s) => s.id === pending?.openingSongId);
+  // Debut Showcase setlist = Opening Song + remaining demos (full Setlist Editor is a later feature)
+  const setlist = opening ? [opening, ...songs.filter((s) => s.id !== opening.id)].slice(0, req.required) : [];
   const lineup = lineupView(save).filter((s) => s.kind !== 'EMPTY');
 
   const [beats] = useState<Beat[]>(() => {
@@ -40,7 +44,7 @@ export function PerformanceScreen() {
         list.push({
           kind: 'CHOICE', memberName: name,
           prompt: `${name}이(가) 예정된 기타 솔로보다 더 길게 이어가려 합니다. 관객 반응이 뜨겁습니다.`,
-          options: [{ id: 'PUSH', label: '그대로 밀어붙인다', energy: 14 }, { id: 'PLAN', label: '계획대로 간다', energy: 6 }],
+          options: [{ id: 'PUSH', label: '그대로 밀어붙인다', energy: B.choicePushEnergy }, { id: 'PLAN', label: '계획대로 간다', energy: B.choicePlanEnergy }],
         });
       }
     });
@@ -48,11 +52,11 @@ export function PerformanceScreen() {
     return list;
   });
   const [i, setI] = useState(0);
-  const [energy, setEnergy] = useState(40); // TODO(balance)
+  const [energy, setEnergy] = useState<number>(B.startEnergy);
   const [choices, setChoices] = useState<{ prompt: string; choiceId: string }[]>([]);
 
-  if (!pending || !venue || setlist.length === 0 || lineup.length === 0) {
-    return <div className="imm"><div className="imm__stage" style={{ padding: 16 }}><EmptyState text="공연을 시작할 수 없다 (예정 공연 / 곡 / 라인업 필요)." action={<Btn variant="secondary" onClick={() => go('/performance/prep', { replace: true })}>PREP</Btn>} /></div></div>;
+  if (!pending || !venue || !opening || !req.met || lineup.length === 0) {
+    return <div className="imm"><div className="imm__stage" style={{ padding: 16 }}><EmptyState text={`공연을 시작할 수 없다 (예정 공연 / Opening Song / 곡 ${req.have}/${req.required} / 라인업 필요).`} action={<Btn variant="secondary" onClick={() => go('/performance/prep', { replace: true })}>PREP</Btn>} /></div></div>;
   }
 
   const beat = beats[i];
@@ -66,16 +70,16 @@ export function PerformanceScreen() {
   const finish = () => {
     // TODO(PHASE2 engine): result = 실력 + 곡/세트리스트 + 준비도 + 컨디션 + 장비 + 지역 적합도 + 팀워크 (+ small RNG on "performance" stream).
     const peak = Math.min(100, energy);
-    const audience = Math.min(venue.capacity, 40 + Math.round(save.band.metrics.fans / 4));
-    const grade: PerformanceSnapshot['grade'] = peak >= 85 ? 'GREAT SHOW' : peak >= 65 ? 'GOOD SHOW' : peak >= 45 ? 'OKAY' : 'DISASTER';
+    const audience = Math.min(venue.capacity, B.baseAudience + Math.round(save.band.metrics.fans * B.audiencePerFan));
+    const grade: PerformanceSnapshot['grade'] = peak >= B.gradeThresholds.great ? 'GREAT SHOW' : peak >= B.gradeThresholds.good ? 'GOOD SHOW' : peak >= B.gradeThresholds.okay ? 'OKAY' : 'DISASTER';
     performanceActions.commit({
       venueId: venue.id, venueName: venue.name,
       lineup: lineup.map((s) => ({ slot: s.slot, label: s.displayName ?? '' })),
-      openingSongTitle: opening?.title ?? '',
+      openingSongTitle: opening.title,
       audience, grade,
-      revenue: audience * 10000,
-      fansDelta: Math.round(audience * 0.5),
-      reputationDelta: grade === 'GREAT SHOW' ? 8 : grade === 'GOOD SHOW' ? 5 : grade === 'OKAY' ? 2 : -3,
+      revenue: audience * B.ticketRevenue,
+      fansDelta: Math.round(audience * B.fansPerAudience),
+      reputationDelta: B.reputationDelta[grade],
       crowdEnergyPeak: peak,
       choices,
     });
@@ -93,7 +97,7 @@ export function PerformanceScreen() {
       <div className="imm__stage">
         <PlaceholderAsset assetKey={`PERFORMANCE_STAGE_${venue.id}`} variant="fill" />
         <div style={{ position: 'absolute', left: 0, right: 0, top: '38%', display: 'flex', justifyContent: 'center', gap: 6 }}>
-          {lineup.map((s) => <CharacterVisual key={s.slot} id={s.characterId ?? 'SESSION'} variant="THUMB" />)}
+          {lineup.map((s) => <CharacterVisual key={s.index} id={s.characterId ?? 'SESSION'} variant="THUMB" />)}
         </div>
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '28%' }}><PlaceholderAsset assetKey="PERFORMANCE_CROWD" variant="fill" /></div>
         {beat.kind === 'CHOICE' && (
@@ -109,8 +113,8 @@ export function PerformanceScreen() {
         )}
       </div>
       <div className="imm__bottom col">
-        {beat.kind === 'INTRO' && <><div className="small dim">무대에 오른다. 관객이 조용해진다.</div><Btn variant="secondary" full onClick={() => advance(10)}>TAP TO CONTINUE</Btn></>}
-        {beat.kind === 'SONG' && <><div className="small"><span className="dim">NOW PLAYING</span> · {beat.title}</div><Btn variant="secondary" full onClick={() => advance(15)}>TAP TO CONTINUE</Btn></>}
+        {beat.kind === 'INTRO' && <><div className="small dim">무대에 오른다. 관객이 조용해진다.</div><Btn variant="secondary" full onClick={() => advance(B.introEnergy)}>TAP TO CONTINUE</Btn></>}
+        {beat.kind === 'SONG' && <><div className="small"><span className="dim">NOW PLAYING</span> · {beat.title}</div><Btn variant="secondary" full onClick={() => advance(B.songEnergy)}>TAP TO CONTINUE</Btn></>}
         {beat.kind === 'CHOICE' && <div className="xs faint">선택을 기다리는 중…</div>}
         {beat.kind === 'OUTRO' && <><div className="small dim">마지막 곡이 끝났다.</div><Btn variant="primary" full onClick={finish}>FINISH SHOW</Btn></>}
       </div>

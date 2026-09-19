@@ -1,12 +1,14 @@
 // Domain actions - the only place that mutates SaveData. UI calls these; simulation depth is PHASE 2+.
+// All numeric tuning lives in PROTOTYPE_BALANCE (TODO(balance)).
 import {
-  CHARACTERS, CONTRACT_PROFILES, SESSION_TEMPLATES, VENUES,
+  CHARACTERS, CONTRACT_PROFILES, PROTOTYPE_BALANCE, SESSION_TEMPLATES, VENUES,
   type CharacterId, type IndividualActionId, type MainActionId, type SlotId,
 } from '@/data/master';
 import { useGameStore } from '../store';
-import { firstEmptyCompatibleSlot, projectedExpense } from '../selectors';
+import { firstEmptyCompatibleSlotIndex, projectedExpense, songCount } from '../selectors';
 import type { LineupAssignment, PerformanceSnapshot, RevealKey, SaveData } from '../save/schema';
 
+const B = PROTOTYPE_BALANCE;
 const update = (fn: (d: SaveData) => void) => useGameStore.getState().update(fn);
 const pad = (n: number) => String(n).padStart(5, '0');
 
@@ -38,7 +40,7 @@ export const auditionActions = {
       // TODO(PHASE2): investigation should consume a weekly action / cost (GDD §04).
     });
   },
-  /** Contract ACCEPT: character becomes PLAYER_MEMBER and is auto-assigned to the first empty compatible slot. */
+  /** Contract ACCEPT: character becomes PLAYER_MEMBER and is auto-assigned to the first empty compatible slot (if any). */
   signContract(auditionId: string, id: CharacterId, terms: { salary: number; durationWeeks: number; rolePromise: 'CORE_MEMBER' | 'SUPPORT_MEMBER' }) {
     update((d) => {
       const week = d.world.week;
@@ -48,10 +50,10 @@ export const auditionActions = {
       const profile = CONTRACT_PROFILES[CHARACTERS[id].contractProfileId];
       d.contracts[id] = {
         characterId: id, salary: terms.salary, startWeek: week, endWeek: week + terms.durationWeeks,
-        rolePromise: terms.rolePromise, clauses: profile?.clauses ?? [], satisfaction: 70,
+        rolePromise: terms.rolePromise, clauses: profile?.clauses ?? [], satisfaction: B.contract.initialSatisfaction,
       };
-      const slot = firstEmptyCompatibleSlot(d, id);
-      if (slot) d.band.lineup[slot] = { kind: 'MEMBER', characterId: id };
+      const idx = firstEmptyCompatibleSlotIndex(d, id);
+      if (idx >= 0) d.band.lineup[idx].assignment = { kind: 'MEMBER', characterId: id };
       if (!d.band.officialLeaderCharacterId) d.band.officialLeaderCharacterId = id;
       const a = d.auditions[auditionId];
       if (a) {
@@ -64,34 +66,41 @@ export const auditionActions = {
   },
 };
 
-// ---------------------------------------------------------------- Band / Lineup
+// ---------------------------------------------------------------- Band / Lineup (variable slot list)
 export const bandActions = {
-  assignSlot(slot: SlotId, assignment: LineupAssignment | null) {
+  /** Assign to lineup slot by index. A member occupies at most one slot; replacing a session ends it. */
+  assignSlot(index: number, assignment: LineupAssignment | null) {
     update((d) => {
+      const slot = d.band.lineup[index];
+      if (!slot) return;
       if (assignment?.kind === 'MEMBER') {
-        // a member occupies at most one slot
-        (Object.keys(d.band.lineup) as SlotId[]).forEach((s) => {
-          const a = d.band.lineup[s];
-          if (a?.kind === 'MEMBER' && a.characterId === assignment.characterId) d.band.lineup[s] = null;
+        d.band.lineup.forEach((s) => {
+          if (s.assignment?.kind === 'MEMBER' && s.assignment.characterId === assignment.characterId) s.assignment = null;
         });
       }
-      const prev = d.band.lineup[slot];
-      if (prev?.kind === 'SESSION') delete d.sessionHires[prev.instanceId];
-      d.band.lineup[slot] = assignment;
+      if (slot.assignment?.kind === 'SESSION') delete d.sessionHires[slot.assignment.instanceId];
+      slot.assignment = assignment;
     });
   },
-  hireSession(slot: SlotId, templateId: string) {
+  hireSession(index: number, templateId: string) {
     update((d) => {
+      const slot = d.band.lineup[index];
       const tpl = SESSION_TEMPLATES.find((t) => t.templateId === templateId);
-      if (!tpl) return;
+      if (!slot || !tpl) return;
       d.counters.session += 1;
       const instanceId = `session_${pad(d.counters.session)}`;
       d.sessionHires[instanceId] = {
-        instanceId, templateId, slot, hiredWeek: d.world.week, endWeek: d.world.week + tpl.durationWeeks, weeklyCost: tpl.weeklyCost,
+        instanceId, templateId, slot: slot.slotId, hiredWeek: d.world.week, endWeek: d.world.week + tpl.durationWeeks, weeklyCost: tpl.weeklyCost,
       };
-      const prev = d.band.lineup[slot];
-      if (prev?.kind === 'SESSION') delete d.sessionHires[prev.instanceId];
-      d.band.lineup[slot] = { kind: 'SESSION', instanceId };
+      if (slot.assignment?.kind === 'SESSION') delete d.sessionHires[slot.assignment.instanceId];
+      slot.assignment = { kind: 'SESSION', instanceId };
+    });
+  },
+  /** Structure only (no UI yet): append an expansion position to the band's lineup. PHASE 2+ feature entry point. */
+  addLineupSlot(slotId: SlotId) {
+    update((d) => {
+      d.band.lineup.push({ slotId, assignment: null });
+      d.careerHistory.push({ week: d.world.week, type: 'LINEUP_CHANGE', text: `${slotId} 포지션 추가` });
     });
   },
   setLeader(id: CharacterId) {
@@ -120,7 +129,8 @@ export const scheduleActions = {
   /**
    * Commit the week (called at the end of the Week Resolution flow).
    * TODO(PHASE2 engine): growth / relationships / condition / event selection / RNG streams.
-   * Prototype only: pay expenses, advance week, create first demo song, spawn a live opportunity, clear the plan.
+   * Prototype script: pay expenses, advance week, create a demo per creative week until the Debut
+   * Showcase song requirement (minSongsForDebut) is met, then spawn the first live opportunity.
    */
   commitWeek(input: { newSongTitle?: string }) {
     update((d) => {
@@ -142,21 +152,22 @@ export const scheduleActions = {
           contributors: { composer: composer ? [composer] : [], lyrics: lyricist ? [lyricist] : [] },
           originContext: d.weeklyPlan.mainActions.includes('RECORDING') ? ['RECORDING_SESSION'] : ['BAND_PRACTICE'],
           // TODO(PHASE2 engine): 4-axis evaluation from member ability + traits + Music DNA + relationships + events.
-          musicProfile: { popularity: avg('star'), artistry: avg('creative'), fanFit: 50, liveFit: avg('stage') },
+          musicProfile: { popularity: avg('star'), artistry: avg('creative'), fanFit: B.songs.demoFanFit, liveFit: avg('stage') },
           genreTags: Array.from(new Set(members.flatMap((m) => CHARACTERS[m].musicTags))).slice(0, 2),
           status: 'UNRELEASED',
         };
       }
 
-      // First live opportunity (IA §6 example: Basement Club 공연 제안 / Expires in 2 weeks)
+      // First live opportunity (IA §6 example: Basement Club 공연 제안) - only once the Debut song requirement is met.
       const hasLiveOffer = Object.values(d.opportunities).some((o) => o.type === 'LIVE');
-      if (!hasLiveOffer && d.band.activeMembers.length >= 1) {
+      if (!hasLiveOffer && d.band.activeMembers.length >= 1 && songCount(d) >= B.songs.minSongsForDebut) {
         d.counters.opportunity += 1;
         const id = `opp_${pad(d.counters.opportunity)}`;
+        const createdWeek = week + B.opportunity.liveOfferDelayWeeks;
         d.opportunities[id] = {
           id, type: 'LIVE', title: 'Basement Club 공연 제안',
           description: `${VENUES.BASEMENT_CLUB.name}에서 Debut Showcase를 제안했다.`,
-          createdWeek: week + 1, expiresWeek: week + 3, status: 'NEW', payload: { venueId: 'BASEMENT_CLUB' },
+          createdWeek, expiresWeek: createdWeek + B.opportunity.liveOfferWindowWeeks, status: 'NEW', payload: { venueId: 'BASEMENT_CLUB' },
         };
       }
 
@@ -165,7 +176,7 @@ export const scheduleActions = {
         const c = d.characterStates[id]?.condition;
         if (!c) return;
         const rested = d.weeklyPlan.mainActions.includes('REST');
-        c.energy = Math.max(0, Math.min(100, c.energy + (rested ? 15 : -8)));
+        c.energy = Math.max(0, Math.min(100, c.energy + (rested ? B.week.energyRest : B.week.energyDrift)));
       });
 
       d.world.week += 1;
@@ -227,7 +238,7 @@ export const performanceActions = {
       const id = `opp_${pad(d.counters.opportunity)}`;
       d.opportunities[id] = {
         id, type: 'MEDIA', title: 'Local Radio 인터뷰', description: '공연을 본 지역 라디오가 인터뷰를 제안했다.',
-        createdWeek: d.world.week, expiresWeek: d.world.week + 1, status: 'NEW',
+        createdWeek: d.world.week, expiresWeek: d.world.week + B.opportunity.mediaOfferWindowWeeks, status: 'NEW',
       };
       d.rng.streams.performance += 1;
     });

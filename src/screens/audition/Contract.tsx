@@ -3,7 +3,7 @@
 // Immersive (dock hidden). Back -> Candidate Detail.
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CHARACTERS, CLAUSE_LABELS, CONTRACT_PROFILES, type CharacterId } from '@/data/master';
+import { CHARACTERS, CLAUSE_LABELS, CONTRACT_PROFILES, PROTOTYPE_BALANCE, type CharacterId } from '@/data/master';
 import { useSave } from '@/state/store';
 import { auditionActions } from '@/state/actions';
 import { useGameNav } from '@/app/navigation';
@@ -65,15 +65,15 @@ export function ContractScreen() {
       <Section title="Salary / 주">
         <div className="row">
           <div className="stepper">
-            <button onClick={() => setSalary((s) => Math.max(50000, s - 50000))}>−</button>
+            <button onClick={() => setSalary((s) => Math.max(PROTOTYPE_BALANCE.contract.minSalary, s - PROTOTYPE_BALANCE.contract.salaryStep))}>−</button>
             <span>{won(salary)}</span>
-            <button onClick={() => setSalary((s) => s + 50000)}>+</button>
+            <button onClick={() => setSalary((s) => s + PROTOTYPE_BALANCE.contract.salaryStep)}>+</button>
           </div>
           <span className="xs dim">기준 {won(profile?.baseSalary ?? 0)}</span>
         </div>
       </Section>
       <Section title="Duration">
-        <div className="seg">{[26, 52, 104].map((w) => <button key={w} className={duration === w ? 'on' : ''} onClick={() => setDuration(w)}>{w}주</button>)}</div>
+        <div className="seg">{PROTOTYPE_BALANCE.contract.durationOptionsWeeks.map((w) => <button key={w} className={duration === w ? 'on' : ''} onClick={() => setDuration(w)}>{w}주</button>)}</div>
       </Section>
       <Section title="Role">
         <div className="seg">

@@ -1,9 +1,9 @@
 // WEEK RESOLUTION (IA §16): NEXT WEEK replays the week as short scene cards. Dock/HUD hidden, Back locked.
 // Conditional event pauses the flow for a choice. Ends with Week Complete summary -> RETURN HOME (Basecamp changed).
 import { useMemo, useState } from 'react';
-import { ACTIVITIES, CHARACTERS, EVENTS } from '@/data/master';
+import { ACTIVITIES, CHARACTERS, EVENTS, PROTOTYPE_BALANCE } from '@/data/master';
 import { useSave } from '@/state/store';
-import { projectedExpense } from '@/state/selectors';
+import { projectedExpense, songCount } from '@/state/selectors';
 import { bandActions, scheduleActions } from '@/state/actions';
 import { useGameNav, useLockBack } from '@/app/navigation';
 import { won, yearWeekLong } from '@/app/format';
@@ -35,7 +35,8 @@ function buildScript(save: SaveData): { steps: Step[]; songTitle: string | null 
   if (needsName) steps.push({ kind: 'EVENT_BAND_NAME' });
 
   const creates = save.weeklyPlan.mainActions.some((a) => a === 'PRACTICE' || a === 'RECORDING');
-  const songTitle = creates && Object.keys(save.songs).length === 0 ? `Untitled Demo ${String(Object.keys(save.songs).length + 1).padStart(2, '0')}` : null;
+  // Scripted prototype tempo: one demo per creative week until the Debut requirement (minSongsForDebut) is met.
+  const songTitle = creates && songCount(save) < PROTOTYPE_BALANCE.songs.minSongsForDebut ? `Untitled Demo ${String(songCount(save) + 1).padStart(2, '0')}` : null;
   if (songTitle) steps.push({ kind: 'NEW_SONG', title: songTitle });
 
   steps.push({ kind: 'COMPLETE' });
@@ -102,7 +103,7 @@ export function WeekResolutionScreen() {
             <div className="card-step__title accent">NEW SONG</div>
             <div className="card-step__visual"><PlaceholderAsset assetKey="SONG_REVEAL" variant="fill" /></div>
             <div className="rowcard__title" style={{ fontSize: 18 }}>{step.title}</div>
-            <p className="small dim">연습 중에 첫 데모가 형태를 갖췄다. SONGS에서 4축 평가와 발매 전략을 확인할 수 있다.</p>
+            <p className="small dim">연습 중에 데모가 형태를 갖췄다. SONGS에서 4축 평가와 발매 전략을 확인할 수 있다.</p>
           </div>
         )}
         {step.kind === 'COMPLETE' && (
@@ -113,7 +114,7 @@ export function WeekResolutionScreen() {
               <dt>팬</dt><dd>{save.band.metrics.fans} (변화 없음)</dd>
               <dt>관계</dt><dd>변화 없음 (TODO PHASE2)</dd>
               <dt>곡</dt><dd>{script.songTitle ? `NEW · ${script.songTitle}` : '진행 없음'}</dd>
-              <dt>기회</dt><dd>{Object.values(save.opportunities).some((o) => o.type === 'LIVE') ? '-' : '새 제안 도착 예정'}</dd>
+              <dt>기회</dt><dd>{Object.values(save.opportunities).some((o) => o.type === 'LIVE') ? '-' : songCount(save) + (script.songTitle ? 1 : 0) >= PROTOTYPE_BALANCE.songs.minSongsForDebut ? '새 제안 도착 예정' : `곡 ${songCount(save) + (script.songTitle ? 1 : 0)}/${PROTOTYPE_BALANCE.songs.minSongsForDebut} · 공연 제안은 ${PROTOTYPE_BALANCE.songs.minSongsForDebut}곡 이후`}</dd>
             </dl>
             <p className="small dim mt12">RETURN HOME 후 Basecamp의 캐릭터 위치·알림이 바뀌어 있어야 한다.</p>
           </div>

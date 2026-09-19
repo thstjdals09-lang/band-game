@@ -1,7 +1,7 @@
 // Derived values (Character Master §14: current derived values are recomputed, never stored).
 // UI must not compute formulas itself - it reads selectors (Implementation Guardrails: "UI에서 계산식을 직접 작성하지 않는다").
 import {
-  ACTIVITIES, CHARACTERS, FACILITIES, LINEUP_SLOTS, SESSION_TEMPLATES, VENUES,
+  ACTIVITIES, CHARACTERS, FACILITIES, PROTOTYPE_BALANCE, SESSION_TEMPLATES, SLOT_DEFINITIONS, VENUES,
   type CharacterId, type SlotId, type VisibleStats,
 } from '@/data/master';
 import type { LineupAssignment, SaveData } from './save/schema';
@@ -17,9 +17,12 @@ export function currentVisibleStats(save: SaveData, id: CharacterId): VisibleSta
   return { ...CHARACTERS[id].visibleStats, ...(save.characterStates[id]?.currentStats ?? {}) };
 }
 
+// ---- Lineup (variable slot list) ----------------------------------------------------------
 export interface LineupSlotView {
+  index: number;      // position in band.lineup (slotIds may repeat in the future)
   slot: SlotId;
   label: string;
+  core: boolean;
   assignment: LineupAssignment | null;
   displayName: string | null;
   kind: 'EMPTY' | 'MEMBER' | 'SESSION';
@@ -27,41 +30,51 @@ export interface LineupSlotView {
 }
 
 export function lineupView(save: SaveData): LineupSlotView[] {
-  return LINEUP_SLOTS.map((s) => {
-    const a = save.band.lineup[s.id];
-    if (!a) return { slot: s.id, label: s.label, assignment: null, displayName: null, kind: 'EMPTY' };
+  return save.band.lineup.map((s, index) => {
+    const def = SLOT_DEFINITIONS[s.slotId];
+    const base = { index, slot: s.slotId, label: def?.label ?? s.slotId, core: def?.core ?? false };
+    const a = s.assignment;
+    if (!a) return { ...base, assignment: null, displayName: null, kind: 'EMPTY' };
     if (a.kind === 'MEMBER') {
-      return { slot: s.id, label: s.label, assignment: a, displayName: CHARACTERS[a.characterId].name, kind: 'MEMBER', characterId: a.characterId };
+      return { ...base, assignment: a, displayName: CHARACTERS[a.characterId].name, kind: 'MEMBER', characterId: a.characterId };
     }
     const hire = save.sessionHires[a.instanceId];
     const tpl = SESSION_TEMPLATES.find((t) => t.templateId === hire?.templateId);
-    return { slot: s.id, label: s.label, assignment: a, displayName: tpl?.label ?? 'SESSION', kind: 'SESSION' };
+    return { ...base, assignment: a, displayName: tpl?.label ?? 'SESSION', kind: 'SESSION' };
   });
 }
 
+export function lineupCapacity(save: SaveData): number {
+  return save.band.lineup.length;
+}
+
 export function assignedCharacterIds(save: SaveData): CharacterId[] {
-  return Object.values(save.band.lineup)
+  return save.band.lineup
+    .map((s) => s.assignment)
     .filter((a): a is { kind: 'MEMBER'; characterId: CharacterId } => !!a && a.kind === 'MEMBER')
     .map((a) => a.characterId);
 }
 
-/** Members compatible with a slot and not already assigned elsewhere. */
+export function isCompatible(id: CharacterId, slot: SlotId): boolean {
+  const def = SLOT_DEFINITIONS[slot];
+  return !!def && CHARACTERS[id].positions.some((p) => def.compatiblePositions.includes(p));
+}
+
+/** Members compatible with a slot and not already assigned in any slot. */
 export function membersAvailableForSlot(save: SaveData, slot: SlotId): CharacterId[] {
-  const slotDef = LINEUP_SLOTS.find((s) => s.id === slot)!;
   const assigned = assignedCharacterIds(save);
-  return save.band.activeMembers.filter((id) => {
-    if (assigned.includes(id) && save.band.lineup[slot]?.kind === 'MEMBER' && (save.band.lineup[slot] as { characterId: CharacterId }).characterId === id) return false;
-    if (assigned.includes(id)) return false;
-    return CHARACTERS[id].positions.some((p) => slotDef.compatiblePositions.includes(p));
-  });
+  return save.band.activeMembers.filter((id) => !assigned.includes(id) && isCompatible(id, slot));
 }
 
-export function slotsForCharacter(id: CharacterId): SlotId[] {
-  return LINEUP_SLOTS.filter((s) => CHARACTERS[id].positions.some((p) => s.compatiblePositions.includes(p))).map((s) => s.id);
+/** Indices of active lineup slots this character can play (other than `exceptIndex`). */
+export function slotIndicesForCharacter(save: SaveData, id: CharacterId, exceptIndex?: number): number[] {
+  return save.band.lineup
+    .map((s, i) => (i !== exceptIndex && isCompatible(id, s.slotId) ? i : -1))
+    .filter((i) => i >= 0);
 }
 
-export function firstEmptyCompatibleSlot(save: SaveData, id: CharacterId): SlotId | null {
-  return slotsForCharacter(id).find((s) => !save.band.lineup[s]) ?? null;
+export function firstEmptyCompatibleSlotIndex(save: SaveData, id: CharacterId): number {
+  return save.band.lineup.findIndex((s) => !s.assignment && isCompatible(id, s.slotId));
 }
 
 // ---- Chemistry diagnostics (IA §10) -------------------------------------------------------
@@ -124,7 +137,19 @@ export function basecampStage(save: SaveData): number {
   }, 1);
 }
 
-// ---- Opportunities / Performance ---------------------------------------------------------
+// ---- Songs / Opportunities / Performance ---------------------------------------------------
+export function songList(save: SaveData) {
+  return Object.values(save.songs).sort((a, b) => a.createdWeek - b.createdWeek);
+}
+export function songCount(save: SaveData): number {
+  return Object.keys(save.songs).length;
+}
+/** Debut Showcase readiness rule: at least minSongsForDebut songs (IA §17 - 첫 공연 전 최소 2곡). */
+export function debutSongRequirement(save: SaveData): { required: number; have: number; met: boolean } {
+  const required = PROTOTYPE_BALANCE.songs.minSongsForDebut;
+  const have = songCount(save);
+  return { required, have, met: have >= required };
+}
 export function unreadOpportunityCount(save: SaveData): number {
   return Object.values(save.opportunities).filter((o) => o.status === 'NEW').length;
 }
@@ -136,9 +161,6 @@ export function pendingOpportunities(save: SaveData) {
 export function pendingVenueName(save: SaveData): string | null {
   const p = save.pendingPerformance;
   return p ? VENUES[p.venueId]?.name ?? p.venueId : null;
-}
-export function songList(save: SaveData) {
-  return Object.values(save.songs).sort((a, b) => a.createdWeek - b.createdWeek);
 }
 
 export function conditionWord(v: number): string {

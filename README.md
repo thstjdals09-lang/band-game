@@ -44,7 +44,9 @@ src/
 
 NEW GAME → BASECAMP → AUDITION → Candidate Detail → (Shortlist / Compare) → Contract → BAND / Lineup → Session Hire → SCHEDULE → NEXT WEEK → Week Resolution (→ 밴드 이름 이벤트 / NEW SONG) → BASECAMP 변화 → Opportunity Inbox → Performance Prep → PERFORMANCE → Choice → RESULT → MANAGEMENT / FACILITIES → BUILD → Expanded Basecamp
 
-시뮬레이션 수치는 전부 placeholder다(`TODO(PHASE2 engine)` / `TODO(balance)` 주석 참조).
+시뮬레이션 수치는 전부 placeholder다. 밸런스 값은 `src/data/master/prototypeBalance.ts`에 격리되어 있으며 Source of Truth가 아니다(`TODO(PHASE2 engine)` / `TODO(balance)`).
+
+Lineup은 가변 슬롯 리스트다. 새 밴드는 core 4포지션(VOCAL / GUITAR / BASS / DRUMS)으로 시작하고, KEYS 등 추가 포지션은 이후 밴드 구성/성장 기능에서 추가된다. Debut Showcase는 데모 2곡이 준비된 뒤에만 제안된다.
 
 ## 문서와 충돌하거나 판단이 필요한 항목
 

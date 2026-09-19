@@ -2,12 +2,13 @@
 // Save holds references + changed state only. Master definitions are never copied into the save.
 // Map-first storage: fixed-id data uses objects keyed by id (characterStates["C04"]).
 //
-// Prototype additions beyond the documented SaveData list (flagged for design review, see README):
-//  - band.lineup            : Lineup/Members separation + role assignment (IA §7-8) needs persisted slot assignments.
-//  - auditions[].shortlistIds / compareIds : Shortlist + Compare (IA §12).
-//  - opportunities          : Opportunity Inbox (IA §6) needs pending/expiring items.
-//  - pendingPerformance     : accepted live offer -> Prep -> Performance link.
-//  - counters               : monotonic id counters (song_00018 style ids).
+// APPROVED prototype fields (PHASE 1.1 structure review) - part of SaveData v1, no schemaVersion bump:
+//  - band.lineup                         : variable ordered slot list (Lineup/Members separation, role assignment)
+//  - auditions[].shortlistIds/compareIds : Shortlist + Compare (IA §12)
+//  - opportunities                       : Opportunity Inbox (IA §6)
+//  - pendingPerformance                  : accepted live offer -> Prep -> Performance link
+//  - counters                            : monotonic id counters (song_00018 style ids)
+// Missing fields on a persisted v1 save are filled by save/migrate.ts (ensureSaveDefaults).
 import type { CharacterId, IndividualActionId, MainActionId, SlotId, VisibleStats } from '@/data/master';
 
 export const SAVE_SCHEMA_VERSION = 1 as const;
@@ -128,12 +129,23 @@ export type LineupAssignment =
   | { kind: 'MEMBER'; characterId: CharacterId }
   | { kind: 'SESSION'; instanceId: string };
 
+/**
+ * One active lineup slot. band.lineup is an ORDERED, VARIABLE-LENGTH list:
+ * new bands start with the core positions (VOCAL/GUITAR/BASS/DRUMS); positions such as KEYS
+ * are appended later by band composition / growth features. Duplicate slotIds are allowed by
+ * the type (e.g. a second GUITAR) - uniqueness rules are a PHASE 2+ design decision.
+ */
+export interface LineupSlotState {
+  slotId: SlotId;
+  assignment: LineupAssignment | null;
+}
+
 export interface BandState {
   name: string | null; // null until EVT_BAND_NAME (IA §26)
   careerTier: CareerTier;
   officialLeaderCharacterId: CharacterId | null;
   activeMembers: CharacterId[];
-  lineup: Record<SlotId, LineupAssignment | null>;
+  lineup: LineupSlotState[];
   brandTags: string[];
   metrics: { fans: number; fanLoyalty: number; fame: number; reputation: number; musicalReputation: number };
 }
@@ -208,6 +220,10 @@ export interface RngState {
   streams: { audition: number; events: number; performance: number; world: number };
 }
 
+export interface SaveCounters {
+  song: number; session: number; audition: number; opportunity: number; performance: number;
+}
+
 export interface SaveData {
   schemaVersion: typeof SAVE_SCHEMA_VERSION;
   contentVersionAtCreation: string;
@@ -231,5 +247,5 @@ export interface SaveData {
   careerHistory: CareerHistoryEntry[];
   economy: EconomyState;
   rng: RngState;
-  counters: { song: number; session: number; audition: number; opportunity: number; performance: number };
+  counters: SaveCounters;
 }

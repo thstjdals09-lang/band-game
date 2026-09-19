@@ -5,6 +5,7 @@ export { TRAITS, traitName } from './traits';
 export { CONTRACT_PROFILES, CLAUSE_LABELS } from './contractProfiles';
 export { SYNERGIES } from './synergies';
 export { EVENTS } from './events';
-export { FACILITIES, VENUES, LINEUP_SLOTS, ACTIVITIES, SESSION_TEMPLATES, MUSIC_TAGS } from './world';
+export { FACILITIES, VENUES, SLOT_DEFINITIONS, CORE_LINEUP_SLOTS, ACTIVITIES, SESSION_TEMPLATES, MUSIC_TAGS } from './world';
+export { PROTOTYPE_BALANCE } from './prototypeBalance';
 
 export const CONTENT_VERSION = '1.0.0-proto';

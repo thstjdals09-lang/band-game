@@ -14,17 +14,22 @@ const SLOT_POS: Record<SlotId, { x: number; y: number }> = {
   VOCAL: { x: 0.40, y: 0.60 },
   KEYS: { x: 0.80, y: 0.42 },
 };
+// Fallback spots for extra / duplicate slots added later (variable slot architecture).
+const EXTRA_POS = [{ x: 0.60, y: 0.62 }, { x: 0.32, y: 0.40 }, { x: 0.76, y: 0.60 }];
 const LOUNGE_POS = [{ x: 0.30, y: 0.80 }, { x: 0.42, y: 0.84 }, { x: 0.20, y: 0.86 }];
 
 export function buildBasecampScene(save: SaveData, mode: WorldMode = 'home'): WorldScene {
   const stage = basecampStage(save);
   const actors: WorldActor[] = [];
   const placed = new Set<string>();
+  const usedSlotIds = new Set<SlotId>();
+  let extra = 0;
 
-  (Object.keys(save.band.lineup) as SlotId[]).forEach((slot) => {
-    const a = save.band.lineup[slot];
+  save.band.lineup.forEach((s) => {
+    const a = s.assignment;
     if (!a) return;
-    const pos = SLOT_POS[slot];
+    const pos = usedSlotIds.has(s.slotId) ? EXTRA_POS[(extra++) % EXTRA_POS.length] : SLOT_POS[s.slotId];
+    usedSlotIds.add(s.slotId);
     if (a.kind === 'MEMBER') {
       placed.add(a.characterId);
       actors.push({ id: a.characterId, kind: 'character', label: CHARACTERS[a.characterId].name, assetKey: characterAssetKey(a.characterId, 'FULL'), x: pos.x, y: pos.y, activity: 'practice' });

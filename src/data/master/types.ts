@@ -11,7 +11,10 @@ export type Position =
   | 'Vocal' | 'Guitar' | 'Lead Guitar' | 'Bass' | 'Drums'
   | 'Keys' | 'Synth' | 'Producer' | 'Perc.' | 'Multi';
 
-/** Lineup slot ids used by BAND / LINEUP (IA v1.1 §7-8). */
+/**
+ * Known lineup slot ids (IA v1.1 §7-8). The band's ACTIVE slots are a variable ordered list in SaveData
+ * (band.lineup); core VS positions are VOCAL / GUITAR / BASS / DRUMS, others can be added later.
+ */
 export type SlotId = 'VOCAL' | 'GUITAR' | 'BASS' | 'DRUMS' | 'KEYS';
 
 export interface VisibleStats {
@@ -203,5 +206,7 @@ export interface SessionTemplate {
 export interface LineupSlotDefinition {
   id: SlotId;
   label: string;
+  /** true = part of the Vertical Slice default lineup; false = expansion position added later */
+  core: boolean;
   compatiblePositions: Position[];
 }

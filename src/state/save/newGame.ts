@@ -1,15 +1,9 @@
 // Creates the initial SaveData for a new game (IA §26: producer name only, then straight to Basecamp / first Audition).
 import {
-  CHARACTER_IDS, CHARACTERS, CONTENT_VERSION, FACILITIES, FIRST_AUDITION_CANDIDATES,
-  type CharacterId,
+  CHARACTER_IDS, CHARACTERS, CONTENT_VERSION, CORE_LINEUP_SLOTS, FACILITIES, FIRST_AUDITION_CANDIDATES,
+  PROTOTYPE_BALANCE, type CharacterId,
 } from '@/data/master';
 import { SAVE_SCHEMA_VERSION, type CharacterState, type SaveData, type WorldStatus } from './schema';
-
-// TODO(balance): starting values are prototype placeholders.
-// Anchors: Visual Bible Hero 02 HUD shows "YEAR 1 WEEK 1 / ₩3,000,000 / 100 fans / ★10".
-const START_CASH = 3_000_000;
-const START_FANS = 100;
-const START_FAME = 10;
 
 function initialWorldStatus(id: CharacterId): WorldStatus {
   if (FIRST_AUDITION_CANDIDATES.includes(id)) return 'AVAILABLE';
@@ -27,7 +21,7 @@ function initialCharacterState(id: CharacterId): CharacterState {
     characterId: id,
     worldStatus: initialWorldStatus(id),
     currentStats: {},
-    condition: { energy: 80, stress: 20, morale: 70 },
+    condition: { ...PROTOTYPE_BALANCE.start.condition },
     traitStates,
     growth: { experience: 0, developmentStage: 0 },
     personalPopularity: 0,
@@ -61,9 +55,12 @@ export function createNewGame(producerName: string): SaveData {
       careerTier: 'UNKNOWN',
       officialLeaderCharacterId: null,
       activeMembers: [],
-      lineup: { VOCAL: null, GUITAR: null, BASS: null, DRUMS: null, KEYS: null },
+      // Variable slot list: VS default = 4 core positions. Expansion slots are appended later.
+      lineup: CORE_LINEUP_SLOTS.map((slotId) => ({ slotId, assignment: null })),
       brandTags: [],
-      metrics: { fans: START_FANS, fanLoyalty: 0, fame: START_FAME, reputation: 0, musicalReputation: 0 },
+      metrics: {
+        fans: PROTOTYPE_BALANCE.start.fans, fanLoyalty: 0, fame: PROTOTYPE_BALANCE.start.fame, reputation: 0, musicalReputation: 0,
+      },
     },
     characterStates,
     relationships: [],
@@ -74,7 +71,7 @@ export function createNewGame(producerName: string): SaveData {
     staff: {},
     auditions: {
       AUD_0001: {
-        auditionId: 'AUD_0001', type: 'OPEN', createdWeek: 1, expiresWeek: 4,
+        auditionId: 'AUD_0001', type: 'OPEN', createdWeek: 1, expiresWeek: PROTOTYPE_BALANCE.audition.firstAuditionExpiresWeek,
         candidateIds: [...FIRST_AUDITION_CANDIDATES],
         revealedInformation, shortlistIds: [], compareIds: [], status: 'OPEN',
       },
@@ -86,7 +83,7 @@ export function createNewGame(producerName: string): SaveData {
     eventHistory: [],
     performanceHistory: [],
     careerHistory: [{ week: 1, type: 'MILESTONE', text: '작은 지하 연습실에서 시작했다.' }],
-    economy: { cash: START_CASH, ledger: [] },
+    economy: { cash: PROTOTYPE_BALANCE.start.cash, ledger: [] },
     rng: { baseSeed: Math.floor(Math.random() * 2 ** 31), streams: { audition: 0, events: 0, performance: 0, world: 0 } },
     counters: { song: 0, session: 0, audition: 1, opportunity: 0, performance: 0 },
   };

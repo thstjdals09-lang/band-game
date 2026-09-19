@@ -1,7 +1,8 @@
 // PERFORMANCE PREP (IA §18): Debut Showcase = Opening Song / Band Condition / Preparation / Equipment only.
+// Requires the Debut song requirement (min 2 songs) - only the Opening Song is chosen; full Setlist Editor is a later feature.
 import { CHARACTERS, VENUES } from '@/data/master';
 import { useSave } from '@/state/store';
-import { conditionWord, lineupView, songList } from '@/state/selectors';
+import { conditionWord, debutSongRequirement, lineupView, songList } from '@/state/selectors';
 import { performanceActions } from '@/state/actions';
 import { useGameNav } from '@/app/navigation';
 import { Panel } from '@/components/Panel';
@@ -16,8 +17,9 @@ export function PerformancePrepScreen() {
   }
   const venue = VENUES[pending.venueId];
   const songs = songList(save);
+  const req = debutSongRequirement(save);
   const lineup = lineupView(save).filter((s) => s.kind !== 'EMPTY');
-  const ready = !!pending.openingSongId && lineup.length > 0;
+  const ready = req.met && !!pending.openingSongId && lineup.length > 0;
 
   return (
     <Panel
@@ -26,20 +28,20 @@ export function PerformancePrepScreen() {
       nav="back"
       footer={<Btn variant="primary" full disabled={!ready} onClick={() => go('/performance/live')}>START SHOW</Btn>}
     >
-      <Section title="Opening Song">
-        {songs.length === 0 && <div className="warn">아직 곡이 없다. Practice / Recording 주간을 먼저 보내라.</div>}
+      <Section title={`Opening Song · 곡 ${req.have}/${req.required}`}>
+        {!req.met && <div className="warn warn--risk">Debut Showcase에는 최소 {req.required}곡이 필요하다. Practice / Recording 주간을 더 보내라.</div>}
         {songs.map((s) => (
           <button key={s.id} className={`rowcard rowcard--tap ${pending.openingSongId === s.id ? 'rowcard--selected' : ''}`} onClick={() => performanceActions.setOpeningSong(s.id)}>
-            <span className="grow" style={{ textAlign: 'left' }}><div className="rowcard__title">{s.title}</div><div className="rowcard__meta">라이브 적합도 {s.musicProfile.liveFit}</div></span>
+            <span className="grow"><div className="rowcard__title">{s.title}</div><div className="rowcard__meta">라이브 적합도 {s.musicProfile.liveFit}</div></span>
             {pending.openingSongId === s.id && <Tag tone="accent">OPENING</Tag>}
           </button>
         ))}
-        <Todo>Full Setlist Editor는 곡이 충분히 쌓인 뒤 해금 (2곡/3곡 기준은 Prototype 검증 대상, IA §17).</Todo>
+        <Todo>첫 공연은 Opening Song 선택만 제공. Full Setlist Editor는 곡이 충분히 쌓인 뒤 해금 (IA §17).</Todo>
       </Section>
       <Section title="Band Condition">
         {lineup.length === 0 && <div className="warn warn--risk">라인업이 비어 있다.</div>}
         {lineup.map((s) => (
-          <div key={s.slot} className="rowcard">
+          <div key={s.index} className="rowcard">
             <span className="slot__role">{s.label}</span>
             <span className="grow">{s.displayName}</span>
             <span className="xs dim">{s.characterId ? `체력 ${conditionWord(save.characterStates[s.characterId]?.condition.energy ?? 0)}` : '세션'}</span>

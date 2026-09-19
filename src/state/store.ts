@@ -35,10 +35,14 @@ export const useGameStore = create<GameStore>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({ save: s.save }),
       version: 1,
-      migrate: (persisted) => {
-        const p = persisted as { save?: SaveData | null };
-        return { save: p?.save ? migrateSave(p.save) : null };
+      // Every load passes through migrateSave (version step-ups + same-version ensureSaveDefaults fallback).
+      merge: (persisted, current) => {
+        const p = persisted as { save?: SaveData | null } | undefined;
+        let save: SaveData | null = null;
+        try { save = p?.save ? migrateSave(p.save) : null; } catch (e) { console.error('[save] unreadable save discarded', e); }
+        return { ...current, save };
       },
+      migrate: (persisted) => persisted as { save: SaveData | null },
     },
   ),
 );

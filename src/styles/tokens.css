@@ -1,6 +1,10 @@
-/* Design tokens - Visual Bible v1.0 §06 Color & Lighting, §07 UI Material, §09 Typography.
-   The Visual Bible names colors (charcoal / dark navy / concrete gray / aged brown / warm amber /
-   coral-pink); the hex values below are PROTOTYPE VARIABLES approximating those names. */
+/* ============================================================================
+   PROTOTYPE APPROXIMATION - NOT Implementation Lock.
+   Visual Bible v1.0 (§06 Color & Lighting, §07 UI Material, §09 Typography) names colors
+   (charcoal / dark navy / concrete gray / aged brown / warm amber / coral-pink) but does not
+   lock HEX values, and the Display font (brush/marker) asset does not exist yet.
+   Every value here is a placeholder to be replaced when Visual Bible v1.1 / Asset Spec locks them.
+   ============================================================================ */
 :root {
   color-scheme: dark;
 

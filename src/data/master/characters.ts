@@ -86,8 +86,8 @@ export const CHARACTERS: Record<CharacterId, CharacterDefinition> = {
     summary: '순수 기술과 라이브 성능이 매우 높다. 비싼 장비와 높은 급여, 약한 멤버를 향한 낮은 인내심이 비용이다.',
     visibleStats: { skill: 92, creative: 74, stage: 89, star: 73, pro: 57 },
     hiddenStats: { composing: 75, lyrics: 39, stamina: 79, mental: 66, liveStability: 88, adaptability: 58 },
-    // TODO(doc): Character Master p.7 abbreviates "HIGH START" = HIGH_START_SLOW / HIGH_START for both C05 and C13.
-    // Which full name belongs to which character must be confirmed with the design owner.
+    // Character Master p.7 abbreviates "HIGH START" = HIGH_START_SLOW / HIGH_START for C05 and C13.
+    // APPROVED (PHASE 1.1 review): C05 = HIGH_START_SLOW, C13 = HIGH_START.
     growthProfile: { overallPotential: 87, curve: 'HIGH_START_SLOW' },
     musicDNA: { accessibility: -13, texture: 28, energy: 88, focus: 20, tone: -47 },
     musicTags: ['Hard Rock', 'Metal', 'Progressive'],
@@ -232,7 +232,7 @@ export const CHARACTERS: Record<CharacterId, CharacterDefinition> = {
     summary: '강한 캐릭터가 아니라 운영 규칙을 바꾸는 캐릭터. Creative Control을 받아들이면 음악성은 오르지만 플레이어 선택권 일부를 잃는다.',
     visibleStats: { skill: 89, creative: 97, stage: 82, star: 80, pro: 46 },
     hiddenStats: { composing: 98, lyrics: 91, stamina: 68, mental: 69, liveStability: 82, adaptability: 93 },
-    // TODO(doc): see C05 note - HIGH_START vs HIGH_START_SLOW assignment to be confirmed.
+    // APPROVED (PHASE 1.1 review): C13 = HIGH_START (see C05 note).
     growthProfile: { overallPotential: 95, curve: 'HIGH_START' },
     musicDNA: { accessibility: -94, texture: 24, energy: -23, focus: -76, tone: -52 },
     musicTags: ['Art Rock', 'Experimental', 'Dream Pop'],
