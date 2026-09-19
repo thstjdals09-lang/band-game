@@ -19,7 +19,7 @@
 - SaveData v1 스키마 + newGame + zustand persist(localStorage `band-game.save.v1`) + migrate 진입점.
 - App Shell: World layer(Basecamp placeholder 렌더러) + HUD + Panel layer + 5 Dock. 몰입 플로우에서 Dock/HUD 숨김.
 - 전 route/screen shell 생성 및 네비게이션 연결 (Prototype Spine 전체 클릭 가능, 시뮬레이션은 placeholder).
-- GitHub Pages 배포 워크플로 추가.
+- GitHub Pages 배포: gh 토큰에 workflow 스코프가 없어 Actions 워크플로 대신 `npm run deploy`(gh-pages 브랜치)로 배포. Playwright(로컬 Chrome) 스모크 테스트로 Prototype Spine 전 구간 통과 확인.
 
 ## 판단 필요 / TODO (문서에 없거나 모호한 항목)
 

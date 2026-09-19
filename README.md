@@ -6,7 +6,7 @@
 
 - 플랫폼: 모바일 웹 / PWA, 세로 우선 (390px 전후 기준)
 - 스택: Vite + React 18 + TypeScript + react-router (hash) + zustand(persist → localStorage)
-- 배포: GitHub Pages (`.github/workflows/pages.yml`) → `https://thstjdals09-lang.github.io/band-game/`
+- 배포: GitHub Pages, `gh-pages` 브랜치 (`npm run deploy` = build + gh-pages push) → https://thstjdals09-lang.github.io/band-game/
 
 ## 실행
 
@@ -15,6 +15,7 @@ npm install
 npm run dev        # http://localhost:5173/band-game/  (--host: 같은 Wi-Fi의 폰에서 접속 가능)
 npm run build      # tsc --noEmit + vite build → dist/
 npm run preview
+npm run deploy     # dist/ → gh-pages 브랜치 → GitHub Pages
 ```
 
 ## 구조
