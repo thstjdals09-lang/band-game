@@ -9,6 +9,7 @@
 import {
   CHARACTERS, PROTOTYPE_BALANCE, type CharacterId, type MainActionId, type MusicDNA,
 } from '@/data/master';
+import { isReleased } from '../save/schema';
 import type { SaveData, SongState } from '../save/schema';
 import { bandDna, dnaSimilarity, genreTagsFor, songDna, type BandDna } from './musicDna';
 import type { Rng } from './rng';
@@ -66,7 +67,7 @@ function writingCondition(save: SaveData, ids: (CharacterId | undefined)[]): num
 
 /** Fan taste = the DNA of what has already been released. Nothing released yet = no bias. */
 function fanTasteDna(save: SaveData): MusicDNA | null {
-  const released = Object.values(save.songs).filter((s) => s.status === 'RELEASED_SINGLE' && s.musicDna);
+  const released = Object.values(save.songs).filter((s) => isReleased(s.status) && s.musicDna);
   if (released.length === 0) return null;
   const axes: (keyof MusicDNA)[] = ['accessibility', 'texture', 'energy', 'focus', 'tone'];
   const out = { accessibility: 0, texture: 0, energy: 0, focus: 0, tone: 0 } as MusicDNA;

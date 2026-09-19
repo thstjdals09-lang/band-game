@@ -18,6 +18,7 @@ node tests/e2e/smoke.mjs      # 전체 동선 + 개발자 문자열 / 탭 영역
 node tests/e2e/phase2a.mjs    # 새 게임에서 7주 연속 플레이 (성장 루프)
 node tests/e2e/compat.mjs     # PHASE 2A 이전 형태의 세이브 로드 + 계속 플레이
 node tests/e2e/practicecost.mjs  # 합주·연습이 장부에 별도 청구되지 않는지
+node tests/e2e/showslot.mjs      # 공연 슬롯 연결 / 홍보 슬롯 누적 / EP 발매 기록
 ```
 
 각 스크립트는 실패 시 스크린샷(`*_fail.png`)을 남기고 exit code 1로 끝난다.

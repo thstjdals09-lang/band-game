@@ -51,7 +51,8 @@ async function playWeek(actions, { name } = {}) {
     if (!actions[i]) continue;
     await page.locator('.actionslot').nth(i).click();
     await page.waitForSelector('.sheet .rowcard');
-    await page.locator('.sheet .rowcard', { hasText: actions[i] }).first().click();
+    await page.locator('.sheet .rowcard')
+      .filter({ has: page.locator('.rowcard__title', { hasText: new RegExp(`^${actions[i]}$`) }) }).first().click();
     await page.waitForTimeout(200);
   }
   await clean('SCHEDULE');
@@ -88,7 +89,24 @@ async function acceptLiveOffer() {
   return sv.pendingPerformance;
 }
 
+/** A show is a weekly activity now: put it in a band slot before taking the stage. */
+async function scheduleLiveShow() {
+  await page.goto(BASE + '#/schedule');
+  await page.waitForSelector('.actionslot');
+  const free = await page.evaluate(() => {
+    const sv = JSON.parse(localStorage.getItem('band-game.save.v1')).state.save;
+    const i = sv.weeklyPlan.mainActions.findIndex((a) => a === null);
+    return i < 0 ? 2 : i;
+  });
+  await page.locator('.actionslot').nth(free).click();
+  await page.waitForSelector('.sheet .rowcard');
+  await page.locator('.sheet .rowcard')
+    .filter({ has: page.locator('.rowcard__title', { hasText: /^공연$/ }) }).first().click();
+  await page.waitForTimeout(200);
+}
+
 async function playShow() {
+  await scheduleLiveShow();
   await page.goto(BASE + '#/performance/prep');
   await page.waitForTimeout(200);
   await clean('PERFORMANCE PREP');

@@ -2,7 +2,7 @@
 // 첫 공연은 Opening Song 선택만. Full Setlist Editor는 이후 기능.
 import { CHARACTERS, VENUES } from '@/data/master';
 import { useSave } from '@/state/store';
-import { conditionWord, debutSongRequirement, lineupView, songList } from '@/state/selectors';
+import { conditionWord, debutSongRequirement, lineupView, liveShowScheduled, playedShowThisWeek, songList } from '@/state/selectors';
 import { preparedness } from '@/state/sim/performance';
 import { performanceActions } from '@/state/actions';
 import { useGameNav } from '@/app/navigation';
@@ -26,7 +26,10 @@ export function PerformancePrepScreen() {
   const songs = songList(save);
   const req = debutSongRequirement(save);
   const lineup = lineupView(save).filter((s) => s.kind !== 'EMPTY');
-  const canStart = req.met && !!pending.openingSongId && lineup.length > 0;
+  // A show is a weekly activity: it takes one of the three band slots (IA §15).
+  const scheduled = liveShowScheduled(save);
+  const alreadyPlayed = playedShowThisWeek(save);
+  const canStart = req.met && !!pending.openingSongId && lineup.length > 0 && scheduled && !alreadyPlayed;
   const ready = preparedness(save);
   const openingSong = songs.find((s) => s.id === pending.openingSongId);
 
@@ -53,6 +56,18 @@ export function PerformancePrepScreen() {
         })}
         {req.met && !pending.openingSongId && <Notice tone="warn">첫 곡을 고르면 공연을 시작할 수 있다.</Notice>}
       </Section>
+
+      {!scheduled && (
+        <Section title="이번 주 일정">
+          <Notice tone="warn">이번 주 일정에 공연을 넣어야 무대에 오를 수 있다.</Notice>
+          <div className="mt12"><Btn variant="secondary" full onClick={() => go('/schedule')}>일정 짜러 가기</Btn></div>
+        </Section>
+      )}
+      {alreadyPlayed && (
+        <Section title="이번 주 일정">
+          <Notice>이번 주 무대는 이미 끝났다. 다음 주 일정에 공연을 넣자.</Notice>
+        </Section>
+      )}
 
       <Section title="멤버 컨디션">
         {lineup.length === 0 && <Notice tone="risk">라인업이 비어 있다.</Notice>}

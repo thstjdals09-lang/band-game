@@ -5,6 +5,7 @@ import { ACTIVITIES, CHARACTERS, PROTOTYPE_BALANCE, RELEASE_FORMATS, VENUES } fr
 import { createNewGame } from '@/state/save/newGame';
 import type { SaveData } from '@/state/save/schema';
 import { simulateWeek, weeklyMusicIncome, buildLiveOffers } from './weekEngine';
+import { projectedExpense } from '@/state/selectors';
 import { createSong } from './song';
 import { bandDna, songDna, dnaSimilarity } from './musicDna';
 import { achievedMilestones, careerTierFor, facilityAvailabilityFor, activityUnlocked, unlockedRevenueStreams } from './career';
@@ -317,6 +318,71 @@ describe('repeat live offers', () => {
     s.songs.a = song('A', 60); s.songs.b = song('B', 60);
     s.pendingPerformance = { opportunityId: 'x', venueId: 'BASEMENT_CLUB', openingSongId: null, status: 'SCHEDULED' };
     expect(buildLiveOffers(s, 9)).toHaveLength(0);
+  });
+});
+
+// 6b ------------------------------------------------------------- show slot / promotion slots
+describe('the live show slot is the show itself, not a decoration', () => {
+  it('a booked but unplayed show costs nothing and tires nobody', () => {
+    const s = band();
+    s.pendingPerformance = { opportunityId: 'o', venueId: 'BASEMENT_CLUB', openingSongId: null, status: 'SCHEDULED' };
+    const idle = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: [null, null, null], individualActions: [] } });
+    const booked = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['LIVE_SHOW', null, null], individualActions: [] } });
+    expect(booked.expense).toBe(idle.expense);
+    expect(booked.members[0].energy).toBe(0);
+    expect(booked.members[0].stress).toBe(0);
+    expect(booked.members[0].experience).toBe(0);
+  });
+
+  it('is not previewed as an expense either', () => {
+    const s = band();
+    s.pendingPerformance = { opportunityId: 'o', venueId: 'BASEMENT_CLUB', openingSongId: null, status: 'SCHEDULED' };
+    const empty = projectedExpense(s);
+    s.weeklyPlan.mainActions = ['LIVE_SHOW', null, null];
+    expect(projectedExpense(s)).toBe(empty);
+  });
+
+  it('replays the night that actually happened in the week summary', () => {
+    const s = band();
+    s.weeklyPlan.mainActions = ['LIVE_SHOW', null, null];
+    s.performanceHistory.push({ ...snapshot(), week: s.world.week, venueName: 'Basement Club', audience: 88 });
+    const o = simulateWeek(s);
+    const entry = o.log.find((l) => l.title.includes('Basement Club'));
+    expect(entry).toBeDefined();
+    expect(entry!.effects.join(' ')).toContain('88');
+  });
+
+  it('says so when the stage was never taken', () => {
+    const s = band();
+    s.weeklyPlan.mainActions = ['LIVE_SHOW', null, null];
+    const o = simulateWeek(s);
+    expect(o.log.some((l) => l.body?.includes('무대에 오르지 않은'))).toBe(true);
+  });
+});
+
+describe('promotion pays per slot', () => {
+  it('scales fans with the number of promotion slots', () => {
+    const s = band();
+    const one = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', null, null], individualActions: [] } });
+    const two = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', 'PROMOTION', null], individualActions: [] } });
+    const three = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', 'PROMOTION', 'PROMOTION'], individualActions: [] } });
+    expect(two.fansDelta).toBe(one.fansDelta * 2);
+    expect(three.fansDelta).toBe(one.fansDelta * 3);
+    expect(three.fanLoyaltyDelta).toBe(one.fanLoyaltyDelta * 3);
+  });
+
+  it('keeps the per-slot value unchanged', () => {
+    const s = band();
+    const one = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', null, null], individualActions: [] } });
+    const starPower = (CHARACTERS.C01.visibleStats.star + CHARACTERS.C04.visibleStats.star) / 2;
+    expect(one.fansDelta).toBe(Math.round(B.promotion.baseFans + starPower * B.promotion.starPowerFactor));
+  });
+
+  it('still costs and tires per slot', () => {
+    const s = band();
+    const one = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', null, null], individualActions: [] } });
+    const three = simulateWeek({ ...structuredClone(s), weeklyPlan: { mainActions: ['PROMOTION', 'PROMOTION', 'PROMOTION'], individualActions: [] } });
+    expect(three.members[0].stress).toBeCloseTo(one.members[0].stress * 3, 5);
   });
 });
 

@@ -73,7 +73,17 @@ export interface ContractState {
   satisfaction: number;
 }
 
-export type SongStatus = 'UNRELEASED' | 'DEMO' | 'RELEASED_SINGLE' | 'SAVED_FOR_EP';
+export type SongStatus =
+  | 'UNRELEASED' | 'DEMO' | 'SAVED_FOR_EP'
+  // One status per release format, so an EP track is not recorded as a single.
+  // Saves written before this existed only ever hold RELEASED_SINGLE and stay valid.
+  | 'RELEASED_SINGLE' | 'RELEASED_EP' | 'RELEASED_ALBUM';
+
+const RELEASED_STATUSES: SongStatus[] = ['RELEASED_SINGLE', 'RELEASED_EP', 'RELEASED_ALBUM'];
+/** Has this song been put out in any format? */
+export function isReleased(status: SongStatus): boolean {
+  return RELEASED_STATUSES.includes(status);
+}
 
 export interface SongState {
   id: string;

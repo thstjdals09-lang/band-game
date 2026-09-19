@@ -103,8 +103,10 @@ export function weeklySessionCost(save: SaveData): number {
   return Object.values(save.sessionHires).reduce((sum, h) => sum + h.weeklyCost, 0);
 }
 export function projectedExpense(save: SaveData): number {
+  // LIVE_SHOW is not previewed here: the production cost is charged by the show itself when the
+  // band actually takes the stage, so a booked-but-unplayed slot never bills anything.
   const actionCost = save.weeklyPlan.mainActions.reduce((sum, a) => {
-    const def = a ? ACTIVITIES.find((x) => x.scope === 'BAND' && x.id === a) : undefined;
+    const def = a && a !== 'LIVE_SHOW' ? ACTIVITIES.find((x) => x.scope === 'BAND' && x.id === a) : undefined;
     return sum + (def?.cost ?? 0);
   }, 0);
   const indCost = save.weeklyPlan.individualActions.reduce((sum, ia) => {
@@ -182,6 +184,15 @@ export function releaseReadiness(save: SaveData): ReleaseReadiness {
     epSongs,
     canReleaseEp: canRelease && epSongs.length >= RELEASE_FORMATS.EP.songsRequired,
   };
+}
+
+/** The weekly plan holds a LIVE_SHOW slot: the band intends to take the stage this week. */
+export function liveShowScheduled(save: SaveData): boolean {
+  return save.weeklyPlan.mainActions.includes('LIVE_SHOW');
+}
+/** A show has already been played in the current week, so the slot is spent. */
+export function playedShowThisWeek(save: SaveData): boolean {
+  return save.performanceHistory.some((p) => p.week === save.world.week);
 }
 
 export function conditionWord(v: number): string {

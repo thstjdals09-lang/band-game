@@ -84,6 +84,37 @@ export function statGainsForStage(
   return { gains, total };
 }
 
+/**
+ * Bank raw experience on one member and resolve any development stages it unlocks.
+ * Shared by the weekly engine and by a finished performance so growth works the same way
+ * wherever the experience came from.
+ */
+export function grantExperience(
+  state: CharacterState,
+  characterId: CharacterId,
+  rawExperience: number,
+  conditionAtTheTime: CharacterState['condition'] = state.condition,
+): { gained: number; stageBefore: number; stageAfter: number; statGains: Partial<VisibleStats> } {
+  const gained = effectiveExperience(rawExperience, conditionAtTheTime);
+  const stageBefore = state.growth.developmentStage;
+  state.growth.experience += gained;
+  const stageAfter = stageForExperience(state.growth.experience);
+  state.growth.developmentStage = stageAfter;
+
+  const statGains: Partial<VisibleStats> = {};
+  for (let stage = stageBefore + 1; stage <= stageAfter; stage += 1) {
+    const current: VisibleStats = { ...CHARACTERS[characterId].visibleStats, ...state.currentStats };
+    const { gains } = statGainsForStage(characterId, stage, current);
+    STAT_KEYS.forEach((k) => {
+      const add = gains[k];
+      if (!add) return;
+      statGains[k] = (statGains[k] ?? 0) + add;
+      state.currentStats[k] = Math.min(100, (state.currentStats[k] ?? CHARACTERS[characterId].visibleStats[k]) + add);
+    });
+  }
+  return { gained, stageBefore, stageAfter, statGains };
+}
+
 export function clampCondition(v: number): number {
   return Math.max(0, Math.min(100, Math.round(v)));
 }

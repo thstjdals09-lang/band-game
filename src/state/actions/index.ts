@@ -1,7 +1,7 @@
 // Domain actions - the only place that mutates SaveData. UI calls these; simulation depth is PHASE 2+.
 // All numeric tuning lives in PROTOTYPE_BALANCE (TODO(balance)).
 import {
-  CAREER_TIERS, CHARACTERS, CONTRACT_PROFILES, FACILITIES, MILESTONES, PROTOTYPE_BALANCE,
+  ACTIVITIES, CAREER_TIERS, CHARACTERS, CONTRACT_PROFILES, FACILITIES, MILESTONES, PROTOTYPE_BALANCE,
   RELEASE_FORMATS, SESSION_TEMPLATES,
   type CharacterId, type IndividualActionId, type MainActionId, type MilestoneId,
   type ReleaseKind, type SlotId,
@@ -9,13 +9,22 @@ import {
 import { useGameStore } from '../store';
 import { firstEmptyCompatibleSlotIndex } from '../selectors';
 import { achievedMilestones, careerTierFor } from '../sim/career';
-import { clampCondition, stageForExperience } from '../sim/growth';
+import { clampCondition, grantExperience, stageForExperience } from '../sim/growth';
 import type { WeekOutcome } from '../sim/weekEngine';
-import type { CareerTier, LineupAssignment, PerformanceSnapshot, RevealKey, SaveData } from '../save/schema';
+import { isReleased } from '../save/schema';
+import type { CareerTier, LineupAssignment, PerformanceSnapshot, RevealKey, SaveData, SongStatus } from '../save/schema';
 
 const B = PROTOTYPE_BALANCE;
 const update = (fn: (d: SaveData) => void) => useGameStore.getState().update(fn);
 const pad = (n: number) => String(n).padStart(5, '0');
+
+/** A track carries the format it was released in, so an EP is not recorded as a single. */
+const RELEASED_STATUS_BY_FORMAT: Record<ReleaseKind, SongStatus> = {
+  SINGLE: 'RELEASED_SINGLE', EP: 'RELEASED_EP', ALBUM: 'RELEASED_ALBUM',
+};
+
+/** Fatigue softening by stamina, matching the weekly engine. */
+const energyFactorOf = (id: CharacterId) => 1 - (CHARACTERS[id].hiddenStats.stamina - 60) / 260;
 
 // ---------------------------------------------------------------- Audition
 export const auditionActions = {
@@ -249,7 +258,7 @@ export const songActions = {
   setStatus(songId: string, status: SaveData['songs'][string]['status']) {
     update((d) => {
       const s = d.songs[songId];
-      if (!s || s.status === 'RELEASED_SINGLE') return;
+      if (!s || isReleased(s.status)) return;
       s.status = status;
     });
   },
@@ -263,7 +272,7 @@ export const songActions = {
       const format = RELEASE_FORMATS[kind];
       const songs = songIds.map((id) => d.songs[id]).filter(Boolean);
       if (!format || songs.length < format.songsRequired) return;
-      if (songs.some((s) => s.status === 'RELEASED_SINGLE')) return;
+      if (songs.some((s) => isReleased(s.status))) return;
 
       const week = d.world.week;
       const absWeek = week + (d.world.year - 1) * 52;
@@ -284,7 +293,7 @@ export const songActions = {
         id, type: kind, songIds: songs.map((s) => s.id), releasedWeek: absWeek,
         result: { revenue, fansDelta, reputationDelta, popularity },
       };
-      songs.forEach((s) => { s.status = 'RELEASED_SINGLE'; });
+      songs.forEach((s) => { s.status = RELEASED_STATUS_BY_FORMAT[kind]; });
 
       d.economy.cash += revenue;
       d.economy.ledger.push({ week, label: `${format.label} 발매 수익`, amount: revenue });
@@ -325,9 +334,18 @@ export const performanceActions = {
   setOpeningSong(songId: string) {
     update((d) => { if (d.pendingPerformance) d.pendingPerformance.openingSongId = songId; });
   },
-  /** Store the finished show as a historical snapshot (values at that time) and apply rewards. */
+  /**
+   * Store the finished show as a historical snapshot (values at that time) and apply EVERYTHING
+   * the show costs and pays: production cost, member fatigue and experience, money, fans and
+   * reputation. This is the only place a show is settled, so the weekly engine leaves the
+   * LIVE_SHOW slot alone and nothing can be applied twice.
+   */
   commit(snapshot: Omit<PerformanceSnapshot, 'id' | 'week'>) {
     update((d) => {
+      // A show must be booked to be settled; after this the booking is cleared, so a repeated
+      // call (re-entering the stage, a reload) finds nothing to settle.
+      if (!d.pendingPerformance || d.pendingPerformance.status === 'DONE') return;
+
       d.counters.performance += 1;
       const snap: PerformanceSnapshot = { ...snapshot, id: `perf_${pad(d.counters.performance)}`, week: d.world.week };
       d.performanceHistory.push(snap);
@@ -345,6 +363,31 @@ export const performanceActions = {
         d.pendingPerformance.status = 'DONE';
       }
       d.pendingPerformance = null;
+
+      // GDD §05 핵심지출 "공연 제작비": the night is paid for when it is actually played.
+      const productionCost = ACTIVITIES.find((a) => a.scope === 'BAND' && a.id === 'LIVE_SHOW')?.cost ?? 0;
+      if (productionCost > 0) {
+        d.economy.cash -= productionCost;
+        d.economy.ledger.push({ week: d.world.week, label: `${snap.venueName} 공연 제작비`, amount: -productionCost });
+      }
+
+      // GDD §06 공연 보상에 "멤버 경험"이 포함된다. 무대에 선 사람만 소모하고 배운다.
+      // 수치는 기존 LIVE_SHOW 활동값 그대로다 (밸런스 변경 없음).
+      const fx = B.activityEffects.LIVE_SHOW;
+      const onStage = d.band.lineup
+        .map((s) => (s.assignment?.kind === 'MEMBER' ? s.assignment.characterId : null))
+        .filter((id): id is CharacterId => !!id);
+      const performers = onStage.length > 0 ? onStage : d.band.activeMembers;
+      performers.forEach((id) => {
+        const st = d.characterStates[id];
+        if (!st) return;
+        const conditionOnStage = { ...st.condition };
+        st.condition.energy = clampCondition(st.condition.energy + fx.energy * energyFactorOf(id));
+        st.condition.stress = clampCondition(st.condition.stress + fx.stress);
+        st.condition.morale = clampCondition(st.condition.morale + fx.morale);
+        grantExperience(st, id, fx.experience, conditionOnStage);
+        if (st.growth.developmentStage >= 3 && st.careerStage === 'ROOKIE') st.careerStage = 'GROWTH';
+      });
 
       // Follow-up opportunity (IA §6 example: Local Radio 인터뷰 / Expires this week)
       d.counters.opportunity += 1;

@@ -235,7 +235,8 @@ try {
     await page.waitForSelector('.actionslot');
     await page.locator('.actionslot').first().click();
     await page.waitForSelector('.sheet .rowcard');
-    await page.locator('.sheet .rowcard', { hasText: '합주 연습' }).first().click();
+    await page.locator('.sheet .rowcard')
+      .filter({ has: page.locator('.rowcard__title', { hasText: /^합주 연습$/ }) }).first().click();
     await page.waitForTimeout(200);
     await tapText('다음 주로 ▶');
     for (let guard = 0; guard < 14; guard += 1) {
@@ -260,6 +261,17 @@ try {
   await page.locator('.rowcard--stack').filter({ hasText: '수용 인원' }).first().getByText('수락', { exact: true }).click();
   await page.waitForTimeout(220);
   await tapText('공연 준비하기');
+  // PHASE 2A fix: the show occupies a weekly band slot before it can start.
+  await expect((await text()).includes('이번 주 일정에 공연을 넣어야'), 'the stage waits for its schedule slot');
+  await page.goto(BASE + '#/schedule');
+  await page.waitForSelector('.actionslot');
+  await page.locator('.actionslot').nth(2).click();
+  await page.waitForSelector('.sheet .rowcard');
+  await page.locator('.sheet .rowcard')
+    .filter({ has: page.locator('.rowcard__title', { hasText: /^공연$/ }) }).first().click();
+  await page.waitForTimeout(200);
+  await page.goto(BASE + '#/performance/prep');
+  await page.waitForTimeout(200);
   await expect(hash() === '#/performance/prep', 'prep route');
   await expect(/보유 곡 \d+\/2/.test(await text()), 'prep shows how many songs the band has');
   await check('PERFORMANCE PREP');

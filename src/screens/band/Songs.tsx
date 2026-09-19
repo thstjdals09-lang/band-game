@@ -3,11 +3,13 @@ import { CHARACTERS, RELEASE_FORMATS } from '@/data/master';
 import { useSave } from '@/state/store';
 import { releaseReadiness, songList } from '@/state/selectors';
 import { songActions } from '@/state/actions';
+import { isReleased } from '@/state/save/schema';
 import { Btn, EmptyState, Section, StatBar, Tag } from '@/components/ui';
 import { BandFrame } from './BandFrame';
 
 const STATUS_LABEL: Record<string, string> = {
-  UNRELEASED: '미발표', DEMO: '데모 보관', RELEASED_SINGLE: '싱글 발매', SAVED_FOR_EP: 'EP용 보관',
+  UNRELEASED: '미발표', DEMO: '데모 보관', SAVED_FOR_EP: 'EP용 보관',
+  RELEASED_SINGLE: '싱글 발매', RELEASED_EP: 'EP 수록', RELEASED_ALBUM: '앨범 수록',
 };
 const ORIGIN_LABEL: Record<string, string> = {
   BAND_PRACTICE: '합주 중에 나왔다', RECORDING_SESSION: '녹음 중에 다듬었다',
@@ -81,7 +83,7 @@ export function SongsScreen() {
             <StatBar label="라이브" value={s.musicProfile.liveFit} />
           </div>
 
-          {s.status !== 'RELEASED_SINGLE' && (
+          {!isReleased(s.status) && (
             <Section title="이 곡을 어떻게 할까" tight>
               <div className="col" style={{ gap: 6 }}>
                 <Btn size="sm" variant={s.status === 'DEMO' ? 'primary' : 'secondary'} full onClick={() => songActions.setStatus(s.id, 'DEMO')}>데모로 둔다</Btn>

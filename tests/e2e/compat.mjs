@@ -66,7 +66,8 @@ try {
   await page.waitForSelector('.actionslot');
   await page.locator('.actionslot').first().click();
   await page.waitForSelector('.sheet .rowcard');
-  await page.locator('.sheet .rowcard', { hasText: '합주 연습' }).first().click();
+  await page.locator('.sheet .rowcard')
+    .filter({ has: page.locator('.rowcard__title', { hasText: /^합주 연습$/ }) }).first().click();
   await page.waitForTimeout(200);
   await tapText('다음 주로 ▶');
   for (let g = 0; g < 16; g += 1) {

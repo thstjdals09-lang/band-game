@@ -72,7 +72,10 @@ export function weeklyMusicIncome(save: SaveData): number {
 function projectedExpenseOf(save: SaveData): number {
   const salaries = Object.values(save.contracts).reduce((s, c) => s + (c?.salary ?? 0), 0);
   const sessions = Object.values(save.sessionHires).reduce((s, h) => s + h.weeklyCost, 0);
-  const band = save.weeklyPlan.mainActions.reduce((s, a) => s + (a ? activityDef(a)?.cost ?? 0 : 0), 0);
+  // LIVE_SHOW is excluded: a booked-but-unplayed show must not bill the band, and a played show
+  // already charged its production cost when it was performed (performanceActions.commit).
+  const band = save.weeklyPlan.mainActions.reduce(
+    (s, a) => s + (a && a !== 'LIVE_SHOW' ? activityDef(a)?.cost ?? 0 : 0), 0);
   const individual = save.weeklyPlan.individualActions.reduce((s, ia) => {
     const def = ACTIVITIES.find((x) => x.scope === 'INDIVIDUAL' && x.id === ia.actionId);
     return s + (def?.cost ?? 0);
@@ -107,10 +110,29 @@ export function simulateWeek(save: SaveData): WeekOutcome {
     });
   });
 
+  // A show is not a generic activity: its fatigue, experience and cost are applied by the
+  // performance when it is actually played, so the slot alone changes nothing here.
   actions.forEach((action, index) => {
     const def = activityDef(action);
     const fx = B.activityEffects[action as keyof typeof B.activityEffects];
     if (!def || !fx) return;
+    if (action === 'LIVE_SHOW') {
+      const snap = [...save.performanceHistory].reverse().find((p) => p.week === week);
+      log.push(snap
+        ? {
+          kind: 'ACTIVITY', title: `${def.name} · ${snap.venueName}`,
+          body: '무대에 올랐다.',
+          effects: [`관객 ${snap.audience}명`, `수익 +${snap.revenue.toLocaleString('ko-KR')}원`, `팬 +${snap.fansDelta}`],
+          assetKey: 'SCENE_LIVE_SHOW',
+        }
+        : {
+          kind: 'ACTIVITY', title: def.name,
+          body: '무대에 오르지 않은 채로 한 주가 지났다.',
+          effects: ['예정된 공연이 그대로 남아 있다'],
+          assetKey: 'SCENE_LIVE_SHOW',
+        });
+      return;
+    }
     members.forEach((id) => {
       const d = deltas.get(id);
       if (!d) return;
@@ -208,17 +230,21 @@ export function simulateWeek(save: SaveData): WeekOutcome {
   // ---------------------------------------------------------------- fans from promotion
   let fansDelta = 0;
   let fanLoyaltyDelta = 0;
-  if (actions.includes('PROMOTION') && members.length > 0) {
+  // Promotion pays per slot: two promotion slots cost twice and tire the band twice, so they
+  // must also reach twice as many people. The per-slot numbers themselves are unchanged.
+  const promotionSlots = actions.filter((a) => a === 'PROMOTION').length;
+  if (promotionSlots > 0 && members.length > 0) {
     const starPower = members.reduce((a, id) => {
       const st = save.characterStates[id];
       const stats = { ...CHARACTERS[id].visibleStats, ...st?.currentStats };
       return a + stats.star;
     }, 0) / members.length;
-    fansDelta = Math.round(B.promotion.baseFans + starPower * B.promotion.starPowerFactor);
-    fanLoyaltyDelta = B.promotion.fanLoyaltyGain;
+    const perSlot = Math.round(B.promotion.baseFans + starPower * B.promotion.starPowerFactor);
+    fansDelta = perSlot * promotionSlots;
+    fanLoyaltyDelta = B.promotion.fanLoyaltyGain * promotionSlots;
     log.push({
       kind: 'ACTIVITY', title: '홍보 결과', body: '이름을 알렸다.',
-      effects: [`팬 +${fansDelta}`],
+      effects: promotionSlots > 1 ? [`팬 +${fansDelta}`, `홍보 ${promotionSlots}회`] : [`팬 +${fansDelta}`],
     });
   }
 

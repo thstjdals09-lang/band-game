@@ -18,7 +18,7 @@ const tapText = async (t, exact = false) => { await page.getByText(t, { exact })
 async function setSlot(i, name) {
   await page.locator('.actionslot').nth(i).click();
   await page.waitForSelector('.sheet .rowcard');
-  await page.locator('.sheet .rowcard', { hasText: name }).first().click();
+  await page.locator('.sheet .rowcard').filter({ has: page.locator('.rowcard__title', { hasText: new RegExp(`^${name}$`) }) }).first().click();
   await page.waitForTimeout(200);
 }
 const expensePreview = async () => {
@@ -58,9 +58,11 @@ try {
   // the sheet should also read 무료
   await page.locator('.actionslot').first().click();
   await page.waitForSelector('.sheet .rowcard');
-  const row = await page.locator('.sheet .rowcard', { hasText: '합주 연습' }).first().innerText();
+  const row = await page.locator('.sheet .rowcard')
+    .filter({ has: page.locator('.rowcard__title', { hasText: /^합주 연습$/ }) }).first().innerText();
   await expect(row.includes('무료'), `활동 선택 시트에 "무료"로 표시된다 (${row.replace(/\s+/g, ' ')})`);
-  await page.locator('.sheet .rowcard', { hasText: '합주 연습' }).first().click();
+  await page.locator('.sheet .rowcard')
+    .filter({ has: page.locator('.rowcard__title', { hasText: /^합주 연습$/ }) }).first().click();
   await page.waitForTimeout(200);
 
   // ---- run the week and read the ledger

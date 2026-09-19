@@ -140,6 +140,8 @@ export function applyPreset(id: PresetId): string {
       bandActions.setBandName('QA BAND');
       reachLiveOffer();
       acceptLiveOffer();
+      // A show takes a weekly slot, so the fixture books one too.
+      scheduleActions.setMainAction(0, 'LIVE_SHOW');
       break;
 
     case 'FACILITY_BUILD_READY':
@@ -147,6 +149,7 @@ export function applyPreset(id: PresetId): string {
       bandActions.setBandName('QA BAND');
       reachLiveOffer();
       acceptLiveOffer();
+      scheduleActions.setMainAction(0, 'LIVE_SHOW');
       playDebutShow();
       break;
 
@@ -155,6 +158,7 @@ export function applyPreset(id: PresetId): string {
       bandActions.setBandName('QA BAND');
       reachLiveOffer();
       acceptLiveOffer();
+      scheduleActions.setMainAction(0, 'LIVE_SHOW');
       playDebutShow();
       facilityActions.build('RECORDING_ROOM', FACILITIES.RECORDING_ROOM.buildCost);
       break;
