@@ -136,6 +136,10 @@ export function scheduleWarnings(save: SaveData): ScheduleWarning[] {
   if (work.newSong && work.practiceSlots === 0) {
     out.push({ level: 'WARN', text: '새 곡 작업을 예약했지만 합주가 없다' });
   }
+  // 반대 경우: 합주를 넣었는데 새 곡 작업도, 다듬을 곡도 없으면 이번 주에 곡이 나오지 않는다.
+  if (!work.newSong && work.practiceSlots > 0 && !work.rehearsalTarget) {
+    out.push({ level: 'WARN', text: '합주로는 곡이 나오지 않는다 · 곡 화면에서 새 곡 작업을 예약하자' });
+  }
   if (work.recordingSlot && !work.recordingTarget) {
     out.push({ level: 'WARN', text: '녹음할 곡을 고르지 않았다' });
   }

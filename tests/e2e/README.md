@@ -21,6 +21,8 @@ node tests/e2e/practicecost.mjs  # 합주·연습이 장부에 별도 청구되�
 node tests/e2e/showslot.mjs      # 공연 슬롯 연결 / 홍보 슬롯 누적
 node tests/e2e/songwork.mjs      # 곡 제작 v1: 예약 작곡 → 공연 → 녹음실 → 녹음 → 싱글·EP 발매
 node tests/e2e/contract.mjs      # 계약 협상: 수락·역제안·거절, 수락 후 조건 변경, 급여 반영
+node tests/e2e/familiarity.mjs   # 라이브 호흡: 준비 화면 표시, 점수 연결, 세션 보충 비교
+node tests/e2e/onboarding.mjs    # 새 게임 -> 첫 공연: HOME 안내 카드만 따라가는 흐름
 ```
 
 각 스크립트는 실패 시 스크린샷(`*_fail.png`)을 남기고 exit code 1로 끝난다.

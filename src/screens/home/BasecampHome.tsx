@@ -4,7 +4,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { CHARACTERS, type CharacterId } from '@/data/master';
 import { useSave } from '@/state/store';
-import { conditionWord, debutSongRequirement, pendingVenueName, unreadOpportunityCount } from '@/state/selectors';
+import { conditionWord, debutSongRequirement, pendingVenueName, songWorkView, unreadOpportunityCount } from '@/state/selectors';
 import { useGameNav } from '@/app/navigation';
 import { CharacterVisual } from '@/components/CharacterVisual';
 import { BottomSheet, Btn, Tag } from '@/components/ui';
@@ -21,6 +21,9 @@ export function BasecampHomeScreen() {
   const venue = pendingVenueName(save);
   const unread = unreadOpportunityCount(save);
   const req = debutSongRequirement(save);
+  const work = songWorkView(save);
+  // 멤버는 있는데 공연까지 곡이 모자란 구간. 지금 눌러야 할 한 가지를 알려준다.
+  const buildingSongs = !noMembers && !venue && unread === 0 && !req.met;
 
   return (
     <>
@@ -42,6 +45,26 @@ export function BasecampHomeScreen() {
             <span className="grow">
               <div className="rowcard__title">{venue} 공연이 잡혀 있다</div>
               <div className="rowcard__meta">{req.met ? '공연 준비로 이동' : `곡 ${req.have}/${req.required} · 준비가 더 필요하다`}</div>
+            </span>
+            <span className="rowcard__chev">›</span>
+          </button>
+        )}
+        {buildingSongs && !work.newSong && (
+          <button className="homecta__card" onClick={() => go('/band/songs')}>
+            <span className="homecta__dot" />
+            <span className="grow">
+              <div className="rowcard__title">새 곡을 쓸 차례다</div>
+              <div className="rowcard__meta">곡 {req.have}/{req.required} · 곡 화면에서 새 곡 작업을 예약한다</div>
+            </span>
+            <span className="rowcard__chev">›</span>
+          </button>
+        )}
+        {buildingSongs && work.newSong && work.practiceSlots === 0 && (
+          <button className="homecta__card" onClick={() => go('/schedule')}>
+            <span className="homecta__dot" />
+            <span className="grow">
+              <div className="rowcard__title">합주를 잡아 데모를 만든다</div>
+              <div className="rowcard__meta">곡 {req.have}/{req.required} · 새 곡 작업을 예약해 두었다</div>
             </span>
             <span className="rowcard__chev">›</span>
           </button>

@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { CharacterId, SlotId } from '@/data/master';
 import type { PerformanceSnapshot } from '@/state/save/schema';
-import { sharedPerformances } from './performance';
+import { createNewGame } from '@/state/save/newGame';
+import type { SaveData } from '@/state/save/schema';
+import { PROTOTYPE_BALANCE } from '@/data/master';
+import {
+  liveFamiliarity, pairFamiliarity, performanceInputs, resolvePerformance, scoreOf, sharedPerformances,
+} from './performance';
 
 /** 실제 저장 경로가 만드는 모양의 공연 기록. entries = 그 공연의 라인업 칸. */
 function show(
@@ -155,5 +160,223 @@ describe('함께 선 무대를 센다', () => {
     const runs = [0, 1, 2, 3].map(() => sharedPerformances(history, 'C01', 'C04'));
     expect(new Set(runs).size).toBe(1);
     expect(runs[0]).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------- 라이브 호흡 (Phase 2B-1 V1)
+const F = PROTOTYPE_BALANCE.familiarity;
+
+/** 무대에 세울 사람들. CharacterId는 고정 캐릭터, null은 익명 세션. */
+function stage(save: SaveData, roster: (CharacterId | null)[]): SaveData {
+  const slots: SlotId[] = ['VOCAL', 'GUITAR', 'BASS', 'DRUMS', 'KEYS'];
+  save.band.lineup = roster.map((id, i) => ({
+    slotId: slots[i % slots.length],
+    assignment: id ? { kind: 'MEMBER' as const, characterId: id } : { kind: 'SESSION' as const, instanceId: `sess_${i}` },
+  }));
+  save.band.activeMembers = roster.filter((x): x is CharacterId => !!x);
+  return save;
+}
+/** 주어진 멤버들이 함께 끝낸 공연을 n회 기록한다. */
+function playedTogether(save: SaveData, members: CharacterId[], n: number): SaveData {
+  for (let i = 0; i < n; i += 1) {
+    save.performanceHistory.push(show(`hist_${members.join('')}_${i}`, members.map((id) => member('VOCAL', id)), i + 1));
+  }
+  return save;
+}
+
+describe('쌍의 호흡 곡선', () => {
+  it('n / (n + 3)을 따른다', () => {
+    expect(F.softness).toBe(3);
+    expect(pairFamiliarity(0)).toBe(0);
+    expect(pairFamiliarity(1)).toBeCloseTo(0.25);
+    expect(pairFamiliarity(3)).toBeCloseTo(0.5);
+    expect(pairFamiliarity(6)).toBeCloseTo(2 / 3);
+    expect(pairFamiliarity(9)).toBeCloseTo(0.75);
+    expect(pairFamiliarity(15)).toBeCloseTo(5 / 6);
+  });
+
+  it('초반에 빠르게 오르고 뒤로 갈수록 완만해지며 1에 닿지 않는다', () => {
+    const early = pairFamiliarity(3) - pairFamiliarity(0);
+    const late = pairFamiliarity(18) - pairFamiliarity(15);
+    expect(early).toBeGreaterThan(late);
+    expect(pairFamiliarity(10_000)).toBeLessThan(1);
+  });
+});
+
+describe('라인업 호흡과 점수 보너스', () => {
+  it('공동 공연 이력이 없으면 보너스 0', () => {
+    const s = stage(createNewGame('T'), ['C01', 'C04', 'C07', 'C10']);
+    const f = liveFamiliarity(s);
+    expect(f.pairs).toBe(6);
+    expect(f.value).toBe(0);
+    expect(f.bonus).toBe(0);
+  });
+
+  it('4명 전원 공동 공연 3회 -> 호흡 50%, 보너스 +2', () => {
+    const roster: CharacterId[] = ['C01', 'C04', 'C07', 'C10'];
+    const s = playedTogether(stage(createNewGame('T'), roster), roster, 3);
+    const f = liveFamiliarity(s);
+    expect(f.performers).toBe(4);
+    expect(f.pairs).toBe(6);
+    expect(f.value).toBeCloseTo(0.5);
+    expect(f.bonus).toBeCloseTo(2);
+  });
+
+  it('4명 전원 공동 공연 9회 -> 호흡 75%, 보너스 +3', () => {
+    const roster: CharacterId[] = ['C01', 'C04', 'C07', 'C10'];
+    const s = playedTogether(stage(createNewGame('T'), roster), roster, 9);
+    const f = liveFamiliarity(s);
+    expect(f.value).toBeCloseTo(0.75);
+    expect(f.bonus).toBeCloseTo(3);
+  });
+
+  it('1명을 경험 없는 캐릭터로 교체 -> 기존 3쌍 유지, 신규 3쌍 0. 호흡 37.5%, 보너스 +1.5', () => {
+    const old: CharacterId[] = ['C01', 'C04', 'C07', 'C10'];
+    const s = playedTogether(createNewGame('T'), old, 9);
+    stage(s, ['C01', 'C04', 'C07', 'C12']); // C10 -> C12 (공동 경험 없음)
+    const f = liveFamiliarity(s);
+    expect(f.pairs).toBe(6);
+    expect(f.value).toBeCloseTo(0.375);
+    expect(f.bonus).toBeCloseTo(1.5);
+    // 교체되지 않은 멤버들 사이의 경험은 그대로다
+    expect(sharedPerformances(s.performanceHistory, 'C01', 'C04')).toBe(9);
+    expect(sharedPerformances(s.performanceHistory, 'C01', 'C12')).toBe(0);
+  });
+
+  it('고정 2명(공동 9회) + 일반 세션 2명 -> 6쌍 중 1쌍만 기여. 호흡 12.5%, 보너스 +0.5', () => {
+    const s = playedTogether(createNewGame('T'), ['C01', 'C04'], 9);
+    stage(s, ['C01', 'C04', null, null]);
+    const f = liveFamiliarity(s);
+    expect(f.performers).toBe(4);
+    expect(f.pairs).toBe(6);
+    expect(f.value).toBeCloseTo(0.125);
+    expect(f.bonus).toBeCloseTo(0.5);
+  });
+
+  it('출전자가 0명 또는 1명이면 오류 없이 0', () => {
+    const empty = stage(createNewGame('T'), []);
+    expect(liveFamiliarity(empty)).toEqual({ performers: 0, pairs: 0, value: 0, bonus: 0 });
+    const solo = playedTogether(stage(createNewGame('T'), ['C01']), ['C01'], 5);
+    const f = liveFamiliarity(solo);
+    expect(f.performers).toBe(1);
+    expect(f.pairs).toBe(0);
+    expect(f.bonus).toBe(0);
+  });
+
+  it('과거에 함께 선 멤버가 돌아오면 그 경험을 다시 쓴다', () => {
+    const s = playedTogether(createNewGame('T'), ['C01', 'C04'], 3);
+    // 한동안 세션으로 대체했다가
+    stage(s, ['C01', null]);
+    expect(liveFamiliarity(s).value).toBe(0);
+    // 복귀시키면 예전 경험이 그대로 살아난다
+    stage(s, ['C01', 'C04']);
+    expect(liveFamiliarity(s).value).toBeCloseTo(0.5);
+    expect(liveFamiliarity(s).bonus).toBeCloseTo(2);
+  });
+
+  it('같은 고정 캐릭터가 중복 배치돼도 한 사람으로 센다', () => {
+    const s = playedTogether(createNewGame('T'), ['C01', 'C04'], 3);
+    s.band.lineup = [
+      { slotId: 'VOCAL', assignment: { kind: 'MEMBER', characterId: 'C01' } },
+      { slotId: 'KEYS', assignment: { kind: 'MEMBER', characterId: 'C01' } }, // 잘못된 중복 배치
+      { slotId: 'GUITAR', assignment: { kind: 'MEMBER', characterId: 'C04' } },
+    ];
+    const f = liveFamiliarity(s);
+    expect(f.performers).toBe(2);
+    expect(f.pairs).toBe(1);
+    expect(f.value).toBeCloseTo(0.5);
+  });
+
+  it('빈 슬롯과 대기 멤버는 분모에 들어가지 않는다', () => {
+    const s = playedTogether(createNewGame('T'), ['C01', 'C04'], 3);
+    s.band.activeMembers = ['C01', 'C04', 'C07']; // C07은 계약만 되어 있고 무대에는 없다
+    s.band.lineup = [
+      { slotId: 'VOCAL', assignment: { kind: 'MEMBER', characterId: 'C01' } },
+      { slotId: 'GUITAR', assignment: { kind: 'MEMBER', characterId: 'C04' } },
+      { slotId: 'BASS', assignment: null },
+      { slotId: 'DRUMS', assignment: null },
+    ];
+    const f = liveFamiliarity(s);
+    expect(f.performers).toBe(2);
+    expect(f.pairs).toBe(1);
+    expect(f.bonus).toBeCloseTo(2);
+  });
+});
+
+describe('점수 연결', () => {
+  function bookedShow(roster: (CharacterId | null)[], history: number): SaveData {
+    const fixed = roster.filter((x): x is CharacterId => !!x);
+    const s = playedTogether(createNewGame('T'), fixed, history);
+    stage(s, roster);
+    s.songs.s1 = {
+      id: 's1', title: 'A', createdWeek: 1, contributors: { composer: [], lyrics: [] },
+      originContext: [], musicProfile: { popularity: 50, artistry: 50, fanFit: 50, liveFit: 50 },
+      genreTags: [], status: 'UNRELEASED', recordedWeek: null, rehearsalCount: 0,
+    };
+    s.pendingPerformance = { opportunityId: 'o', venueId: 'BASEMENT_CLUB', openingSongId: 's1', status: 'SCHEDULED' };
+    return s;
+  }
+
+  it('보너스가 점수에 더해지고 상한 100을 넘지 않는다', () => {
+    const i = {
+      skill: 100, stagePresence: 100, songLiveFit: 100, condition: 100, liveStability: 100,
+      choiceBonus: 0, familiarityBonus: 0, random: 0,
+    };
+    expect(scoreOf(i)).toBeCloseTo(100);
+    expect(scoreOf({ ...i, familiarityBonus: F.maxBonus })).toBe(100); // 상한 유지
+    const mid = { ...i, skill: 50, stagePresence: 50, songLiveFit: 50, condition: 50, liveStability: 50 };
+    expect(scoreOf({ ...mid, familiarityBonus: 2 }) - scoreOf(mid)).toBeCloseTo(2);
+  });
+
+  it('준비 화면과 실제 결과가 같은 호흡 값을 쓴다', () => {
+    const s = bookedShow(['C01', 'C04', 'C07', 'C10'], 3);
+    const shown = liveFamiliarity(s);
+    const used = performanceInputs(s, 0, 0).familiarityBonus;
+    expect(used).toBeCloseTo(shown.bonus);
+    expect(resolvePerformance(s, 0).inputs.familiarityBonus).toBeCloseTo(shown.bonus);
+  });
+
+  it('호흡이 0이면 기존 공연 결과와 같다', () => {
+    const s = bookedShow(['C01', 'C04'], 0);
+    const r = resolvePerformance(s, 0);
+    const i = r.inputs;
+    const base = i.skill * PROTOTYPE_BALANCE.performanceScore.skill
+      + i.stagePresence * PROTOTYPE_BALANCE.performanceScore.stagePresence
+      + i.songLiveFit * PROTOTYPE_BALANCE.performanceScore.songLiveFit
+      + i.condition * PROTOTYPE_BALANCE.performanceScore.condition
+      + i.liveStability * PROTOTYPE_BALANCE.performanceScore.liveStability;
+    expect(i.familiarityBonus).toBe(0);
+    expect(r.score).toBeCloseTo(Math.max(0, Math.min(100, base + i.choiceBonus + i.random)));
+  });
+
+  it('호흡을 연결해도 난수 흐름이 달라지지 않는다', () => {
+    const withHistory = bookedShow(['C01', 'C04'], 9);
+    const without = bookedShow(['C01', 'C04'], 0);
+    without.rng = { ...withHistory.rng, streams: { ...withHistory.rng.streams } }; // 같은 시드에서 비교
+    // 같은 rng 위치에서 같은 난수를 쓴다 (호흡은 난수를 소비하지 않는다)
+    expect(resolvePerformance(withHistory, 0).inputs.random)
+      .toBe(resolvePerformance(without, 0).inputs.random);
+    // 호출해도 rng 스트림 위치는 그대로다
+    const before = withHistory.rng.streams.performance;
+    resolvePerformance(withHistory, 0);
+    liveFamiliarity(withHistory);
+    expect(withHistory.rng.streams.performance).toBe(before);
+  });
+
+  it('이번 공연은 이번 결과에 미리 반영되지 않고, 다음 공연부터 반영된다', () => {
+    const s = bookedShow(['C01', 'C04'], 0);
+    expect(liveFamiliarity(s).bonus).toBe(0);            // 첫 공동 공연: 보너스 0
+    // 이 공연이 끝나 기록으로 남으면
+    s.performanceHistory.push(show('first', [member('VOCAL', 'C01'), member('GUITAR', 'C04')], 2));
+    expect(sharedPerformances(s.performanceHistory, 'C01', 'C04')).toBe(1);
+    expect(liveFamiliarity(s).value).toBeCloseTo(0.25);  // 다음 공연부터 n = 1
+  });
+
+  it('계산은 세이브를 건드리지 않는다', () => {
+    const s = bookedShow(['C01', 'C04', 'C07'], 4);
+    const before = JSON.stringify(s);
+    liveFamiliarity(s);
+    performanceInputs(s, 0, 0);
+    expect(JSON.stringify(s)).toBe(before);
   });
 });

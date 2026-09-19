@@ -614,7 +614,7 @@ describe('performance result comes from band state', () => {
     expect(gradeOf(70)).toBe('GOOD SHOW');
     expect(gradeOf(50)).toBe('OKAY');
     expect(gradeOf(10)).toBe('DISASTER');
-    expect(scoreOf({ skill: 100, stagePresence: 100, songLiveFit: 100, condition: 100, liveStability: 100, choiceBonus: 0, random: 0 })).toBeCloseTo(100);
+    expect(scoreOf({ skill: 100, stagePresence: 100, songLiveFit: 100, condition: 100, liveStability: 100, choiceBonus: 0, familiarityBonus: 0, random: 0 })).toBeCloseTo(100);
   });
 });
 

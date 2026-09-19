@@ -121,6 +121,14 @@ export const PROTOTYPE_BALANCE = {
     /** Fans needed before the larger venue starts calling. TODO(balance) */
     moonlightClubFans: 260,
   },
+  /**
+   * 라이브 호흡 V1 시험 규칙 (Phase 2B-1). 플레이테스트로 확정할 임시값이며 기획 확정값이 아니다.
+   * 함께 완료한 공연 횟수 n에 대해 pairFamiliarity = n / (n + softness).
+   */
+  familiarity: {
+    softness: 3,   // TODO(balance)
+    maxBonus: 4,   // TODO(balance) 점수에 더하는 상한. 감점은 없다.
+  },
   performanceScore: {
     /** Weights over the inputs IA §19 lists. They sum to 1 before the moment-choice bonus. */
     skill: 0.24,

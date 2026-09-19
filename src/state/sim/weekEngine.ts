@@ -300,6 +300,13 @@ export function simulateWeek(save: SaveData): WeekOutcome {
       body: '무대에 올릴 곡을 반복해서 맞췄다.',
       effects: [`합주 ${rehearsal.slots}회`, '숙련도 수치는 아직 정해지지 않았다'],
     });
+  } else if (!plan.songWork.newSong && practiceSlots > 0) {
+    // 합주는 했는데 새 곡 작업 예약도, 맞춰볼 곡도 없었다. 왜 곡이 안 나왔는지 알려준다.
+    log.push({
+      kind: 'SONG', title: '합주',
+      body: '맞춰볼 곡이 아직 없어 기본기만 다졌다.',
+      effects: ['멤버 성장에만 쓰였다', '곡 화면에서 새 곡 작업을 예약하면 다음 합주에서 데모가 나온다'],
+    });
   }
 
   // ---------------------------------------------------------------- recording (v1 규칙 3)

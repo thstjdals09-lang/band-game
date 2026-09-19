@@ -5,7 +5,7 @@ import { useSave } from '@/state/store';
 import { conditionWord, debutSongRequirement, lineupView, liveShowScheduled, playedShowThisWeek, songList, starterCheck } from '@/state/selectors';
 import { CHARACTERS as ALL_CHARACTERS } from '@/data/master';
 import { contractActions } from '@/state/actions';
-import { preparedness } from '@/state/sim/performance';
+import { liveFamiliarity, preparedness } from '@/state/sim/performance';
 import { performanceActions } from '@/state/actions';
 import { useGameNav } from '@/app/navigation';
 import { Panel } from '@/components/Panel';
@@ -36,6 +36,8 @@ export function PerformancePrepScreen() {
   const blocked = starters.fixable.length > 0; // 지킬 수 있는 편성이 있으면 이 편성으로는 못 나간다
   const canStart = req.met && !!pending.openingSongId && lineup.length > 0 && scheduled && !alreadyPlayed && !blocked;
   const ready = preparedness(save);
+  // 준비 화면과 실제 공연 결과가 같은 계산을 쓴다. 라인업이 바뀌면 이 값도 따라 바뀐다.
+  const familiarity = liveFamiliarity(save);
   const openingSong = songs.find((s) => s.id === pending.openingSongId);
 
   return (
@@ -121,10 +123,12 @@ export function PerformancePrepScreen() {
       <Section title="준비 상태">
         <dl className="kv">
           <dt>준비도</dt><dd>{conditionWord(ready)}</dd>
+          <dt>라이브 호흡</dt><dd>{Math.round(familiarity.value * 100)}%</dd>
           <dt>오프닝 라이브 적합도</dt><dd>{openingSong ? openingSong.musicProfile.liveFit : '-'}</dd>
           <dt>장비</dt><dd>기본 장비</dd>
         </dl>
         <Notice>준비도는 멤버의 체력·사기·스트레스에서 나온다. 공연 전 휴식과 연습이 결과를 바꾼다.</Notice>
+        <Notice>함께 완료한 공연 경험에 따른 호흡입니다.</Notice>
       </Section>
 
       <div className="rowcard__meta mt16">

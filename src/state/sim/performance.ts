@@ -12,6 +12,7 @@ import { createRng } from './rng';
 
 const P = PROTOTYPE_BALANCE.performance;
 const W = PROTOTYPE_BALANCE.performanceScore;
+const F = PROTOTYPE_BALANCE.familiarity;
 
 export interface PerformanceInputs {
   /** 0..100 each, so the weighted score is readable. */
@@ -22,6 +23,8 @@ export interface PerformanceInputs {
   liveStability: number;
   /** Crowd reaction earned by the moment choices. */
   choiceBonus: number;
+  /** 함께 무대에 서 온 경험에서 오는 가점 (0..F.maxBonus). 감점은 없다. */
+  familiarityBonus: number;
   random: number;
 }
 
@@ -77,6 +80,7 @@ export function performanceInputs(save: SaveData, choiceBonus: number, random: n
     condition: preparedness(save),
     liveStability: averageOf(save, (id) => CHARACTERS[id].hiddenStats.liveStability),
     choiceBonus,
+    familiarityBonus: liveFamiliarity(save).bonus,
     random,
   };
 }
@@ -88,7 +92,7 @@ export function scoreOf(i: PerformanceInputs): number {
     + i.songLiveFit * W.songLiveFit
     + i.condition * W.condition
     + i.liveStability * W.liveStability;
-  return Math.max(0, Math.min(100, base + i.choiceBonus + i.random));
+  return Math.max(0, Math.min(100, base + i.choiceBonus + i.familiarityBonus + i.random));
 }
 
 export function gradeOf(score: number): PerformanceSnapshot['grade'] {
@@ -161,4 +165,73 @@ export function sharedPerformances(
     if (onStage.has(a) && onStage.has(b)) shared += 1;
   });
   return shared;
+}
+
+// ---------------------------------------------------------------- 라이브 호흡 (Phase 2B-1 V1)
+/**
+ * 두 사람이 함께 끝낸 공연 n회에서 나오는 쌍의 호흡. `n / (n + softness)`.
+ * 초반에 빠르게 오르고 뒤로 갈수록 완만해진다. 1에는 닿지 않는다.
+ */
+export function pairFamiliarity(sharedShows: number): number {
+  if (sharedShows <= 0) return 0;
+  return sharedShows / (sharedShows + F.softness);
+}
+
+export interface LiveFamiliarity {
+  /** 이번 무대에 서는 사람 수. 같은 고정 캐릭터가 중복 배치돼도 한 명으로 센다. */
+  performers: number;
+  /** 전체 쌍의 수 = m(m-1)/2. */
+  pairs: number;
+  /** 라인업 호흡 0..1. 모든 쌍의 호흡 평균이다. */
+  value: number;
+  /** 공연 점수에 더하는 가점. */
+  bonus: number;
+}
+
+/**
+ * 이번 공연에 실제로 서는 사람들의 명단.
+ * 빈 슬롯과 대기 중인 멤버는 빠지고, 일반 세션은 익명이므로 각각 한 자리를 차지한다(null).
+ */
+function familiarityRoster(save: SaveData): (CharacterId | null)[] {
+  const seen = new Set<CharacterId>();
+  const roster: (CharacterId | null)[] = [];
+  save.band.lineup.forEach((slot) => {
+    const a = slot.assignment;
+    if (!a) return;                          // 빈 슬롯
+    if (a.kind === 'MEMBER') {
+      if (seen.has(a.characterId)) return;   // 잘못 중복 배치돼도 한 사람
+      seen.add(a.characterId);
+      roster.push(a.characterId);
+      return;
+    }
+    roster.push(null);                       // 일반 세션
+  });
+  return roster;
+}
+
+/**
+ * 이번 공연 라인업의 라이브 호흡.
+ *
+ * **이번 공연 이전에 완료된 공연 기록만** 본다 (sharedPerformances). 준비 화면과 실제 결과가
+ * 같은 값을 쓰므로, 첫 공동 공연의 보너스는 0이고 그 공연이 끝난 다음 공연부터 n = 1이 반영된다.
+ * 고정 캐릭터 ID가 있는 사람은 그 ID의 공동 공연 이력을 쓰고, 익명 세션이 낀 쌍의 호흡은 0이다.
+ * 저장하는 값은 없다. 기록에서 매번 다시 계산한다.
+ */
+export function liveFamiliarity(save: SaveData): LiveFamiliarity {
+  const roster = familiarityRoster(save);
+  const performers = roster.length;
+  const pairs = (performers * (performers - 1)) / 2;
+  if (pairs <= 0) return { performers, pairs: 0, value: 0, bonus: 0 };
+
+  let total = 0;
+  for (let i = 0; i < roster.length; i += 1) {
+    for (let j = i + 1; j < roster.length; j += 1) {
+      const a = roster[i];
+      const b = roster[j];
+      if (!a || !b) continue;                // 익명 세션이 낀 쌍은 0
+      total += pairFamiliarity(sharedPerformances(save.performanceHistory, a, b));
+    }
+  }
+  const value = total / pairs;               // 중간 계산은 반올림하지 않는다
+  return { performers, pairs, value, bonus: F.maxBonus * value };
 }
