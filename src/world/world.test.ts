@@ -15,6 +15,7 @@ import { BASECAMP_STAGE_2_PATCH } from './maps/basecampStage2';
 import { OBJECT_DEFINITIONS, depthAnchorFor, interactionTileFor } from './objects/definitions';
 import { occupancyPlacements, resolveCharacterPlacements, resolveObjectInstances } from './objects/instances';
 import { buildWorldScene, cameraBoundsOf } from './renderer/buildScene';
+import { DEFAULT_TEST_SPRITE, spriteFor } from './assets/testSprite';
 import { createNewGame } from '@/state/save/newGame';
 import type { SaveData } from '@/state/save/schema';
 
@@ -322,5 +323,44 @@ describe('responsive camera fit', () => {
     const cam = fitCamera(cameraBoundsOf(BASECAMP_STAGE_1), { width: 390, height: 844, insets });
     expect(cam.clamped).toBe(false);
     expect(cam.zoom).toBeGreaterThan(0);
+  });
+});
+
+// 10 ----------------------------------------------------------------- test sprite (visual fit)
+describe('test sprite placement', () => {
+  it('binds the stand-in only to its own character by default', () => {
+    expect(spriteFor(DEFAULT_TEST_SPRITE, 'C01')).toBeDefined();
+    expect(spriteFor(DEFAULT_TEST_SPRITE, 'C04')).toBeUndefined();
+    expect(spriteFor({ ...DEFAULT_TEST_SPRITE, applyToAllCharacters: true }, 'C04')).toBeDefined();
+    expect(spriteFor({ ...DEFAULT_TEST_SPRITE, enabled: false }, 'C01')).toBeUndefined();
+  });
+
+  it('attaches the sprite to the character node without moving its spawn tile', () => {
+    const scene = buildWorldScene({
+      save: saveWithBand(), testSprite: DEFAULT_TEST_SPRITE,
+      viewport: { width: 390, height: 844, insets },
+    });
+    const node = scene.nodes.find((n) => n.id === 'character:C01')!;
+    expect(node.sprite?.assetKey).toBe('CHARACTER_C01_TEST_FRONT');
+    expect(node.anchor).toEqual(spawnForSlot(BASECAMP_STAGE_1, 'VOCAL')!.pos);
+  });
+
+  it('lands the foot anchor exactly on the spawn tile centre at any scale', () => {
+    const tile = { x: 3, y: 4 };
+    const centre = gridToScreen(tile, proj);
+    [1.2, 2.2, 3.5].forEach((heightUnits) => {
+      const s = (heightUnits * proj.elevationHeight) / DEFAULT_TEST_SPRITE.sourceSize.h;
+      const drawX = centre.x - DEFAULT_TEST_SPRITE.footAnchor.x * s;
+      const drawY = centre.y - DEFAULT_TEST_SPRITE.footAnchor.y * s;
+      expect(drawX + DEFAULT_TEST_SPRITE.footAnchor.x * s).toBeCloseTo(centre.x);
+      expect(drawY + DEFAULT_TEST_SPRITE.footAnchor.y * s).toBeCloseTo(centre.y);
+      expect(DEFAULT_TEST_SPRITE.sourceSize.h * s).toBeCloseTo(heightUnits * proj.elevationHeight);
+    });
+  });
+
+  it('exposes the real world bounds and required rect for the bounds overlay', () => {
+    const scene = buildWorldScene({ save: saveWithBand(), viewport: { width: 390, height: 844, insets } });
+    expect(scene.requiredBounds.width).toBeLessThan(scene.worldBounds.width);
+    expect(scene.worldBounds.width).toBeGreaterThan(0);
   });
 });

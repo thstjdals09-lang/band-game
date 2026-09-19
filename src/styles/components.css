@@ -193,6 +193,11 @@
   font-family: var(--font-mono); font-size: 11px; fill: var(--c-accent); pointer-events: none;
   paint-order: stroke; stroke: rgba(8, 10, 16, 0.9); stroke-width: 4px; stroke-linejoin: round;
 }
+.isoworld__sprite { image-rendering: pixelated; }
+.isoworld__foot { fill: var(--c-ok); }
+.isoworld__bounds { fill: none; stroke-width: 3; }
+.isoworld__bounds--full { stroke: rgba(127, 201, 138, 0.85); stroke-dasharray: 14 10; }
+.isoworld__bounds--required { stroke: rgba(232, 171, 92, 0.9); stroke-dasharray: 6 6; }
 .isoworld__safe { fill: none; stroke: var(--c-accent); stroke-width: 2; stroke-dasharray: 8 6; }
 
 /* ---------- Dev world lab ---------- */

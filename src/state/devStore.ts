@@ -3,6 +3,7 @@
 // reference is rendered anywhere in the game UI. Toggled only from /dev.
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { DEFAULT_TEST_SPRITE, type TestSpriteParams } from '@/world/assets/testSprite';
 
 export interface WorldDebugToggles {
   grid: boolean;
@@ -12,11 +13,12 @@ export interface WorldDebugToggles {
   depthAnchors: boolean;
   spawnPoints: boolean;
   safeArea: boolean;
+  worldBounds: boolean;
 }
 
 export const DEFAULT_WORLD_TOGGLES: WorldDebugToggles = {
   grid: false, coordinates: false, footprints: false,
-  interactionTiles: false, depthAnchors: false, spawnPoints: false, safeArea: false,
+  interactionTiles: false, depthAnchors: false, spawnPoints: false, safeArea: false, worldBounds: false,
 };
 
 interface DevStore {
@@ -27,6 +29,10 @@ interface DevStore {
   world: WorldDebugToggles;
   toggleWorldFlag: (key: keyof WorldDebugToggles) => void;
   setWorldFlags: (flags: Partial<WorldDebugToggles>) => void;
+  /** WORLD VISUAL FIT TEST parameters. Development only - never part of SaveData. */
+  testSprite: TestSpriteParams;
+  setTestSprite: (patch: Partial<TestSpriteParams>) => void;
+  resetTestSprite: () => void;
 }
 
 export const useDevStore = create<DevStore>()(
@@ -38,6 +44,9 @@ export const useDevStore = create<DevStore>()(
       world: { ...DEFAULT_WORLD_TOGGLES },
       toggleWorldFlag: (key) => set({ world: { ...get().world, [key]: !get().world[key] } }),
       setWorldFlags: (flags) => set({ world: { ...get().world, ...flags } }),
+      testSprite: { ...DEFAULT_TEST_SPRITE },
+      setTestSprite: (patch) => set({ testSprite: { ...get().testSprite, ...patch } }),
+      resetTestSprite: () => set({ testSprite: { ...DEFAULT_TEST_SPRITE } }),
     }),
     { name: 'band-game.dev', storage: createJSONStorage(() => localStorage) },
   ),
@@ -45,3 +54,4 @@ export const useDevStore = create<DevStore>()(
 
 export const useDevDiagnostics = () => useDevStore((s) => s.diagnostics);
 export const useWorldDebugFlags = () => useDevStore((s) => s.world);
+export const useTestSprite = () => useDevStore((s) => s.testSprite);

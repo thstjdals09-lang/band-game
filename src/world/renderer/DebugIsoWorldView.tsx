@@ -75,6 +75,21 @@ export function DebugIsoWorldView({ scene, debug = NO_DEBUG, onSelectObject, onS
           );
         })}
 
+        {debug.worldBounds && (
+          <>
+            <rect
+              className="isoworld__bounds isoworld__bounds--full"
+              x={scene.worldBounds.x} y={scene.worldBounds.y}
+              width={scene.worldBounds.width} height={scene.worldBounds.height}
+            />
+            <rect
+              className="isoworld__bounds isoworld__bounds--required"
+              x={scene.requiredBounds.x} y={scene.requiredBounds.y}
+              width={scene.requiredBounds.width} height={scene.requiredBounds.height}
+            />
+          </>
+        )}
+
         {debug.coordinates && scene.map.floorTiles.map((t) => {
           const c = gridToScreen(t.pos, projection);
           return (
@@ -161,7 +176,8 @@ function WorldNode({ node, scene, debug, dev, onSelect }: NodeProps) {
   const right = [base[2], base[1], top[1], top[2]];
   const centre = gridToScreen(front, projection);
   const tapR = tapRadiusFor(node.footprint.w * node.footprint.h, camera, projection) / camera.zoom;
-  const hasArt = !!(node.assetKey && resolveAsset(node.assetKey));
+  const spriteUrl = node.sprite ? resolveAsset(node.sprite.assetKey) : null;
+  const hasArt = !!spriteUrl || !!(node.assetKey && resolveAsset(node.assetKey));
   const fill = node.kind === 'character' ? '#2b3140' : (OBJECT_FILL[nodeKindFill(node)] ?? OBJECT_FILL.prop);
 
   return (
@@ -185,13 +201,31 @@ function WorldNode({ node, scene, debug, dev, onSelect }: NodeProps) {
           <polygon points={pointsToSvg(top)} fill={shade(fill, 22)} stroke="rgba(240,235,224,0.14)" />
         </>
       )}
-      {node.kind === 'character' && (
+      {spriteUrl && node.sprite && (() => {
+        // Foot anchor lands exactly on the depth-anchor tile centre; scale comes from heightUnits.
+        const s = (node.sprite.heightUnits * projection.elevationHeight) / node.sprite.sourceSize.h;
+        return (
+          <image
+            className="isoworld__sprite"
+            href={spriteUrl}
+            x={centre.x - node.sprite.footAnchor.x * s}
+            y={centre.y - node.sprite.footAnchor.y * s}
+            width={node.sprite.sourceSize.w * s}
+            height={node.sprite.sourceSize.h * s}
+            preserveAspectRatio="xMidYMax meet"
+          />
+        );
+      })()}
+      {node.kind === 'character' && !spriteUrl && (
         <circle
           className="isoworld__head"
           cx={centre.x}
           cy={centre.y - h * 0.86}
           r={projection.tileWidth * 0.1}
         />
+      )}
+      {debug.depthAnchors && node.sprite && (
+        <circle className="isoworld__foot" cx={centre.x} cy={centre.y} r={4} />
       )}
       {node.label && node.kind === 'object' && (
         <text className="isoworld__label" x={centre.x} y={centre.y - h - 8} textAnchor="middle">{node.label}</text>

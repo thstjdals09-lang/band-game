@@ -49,6 +49,16 @@
 - vitest 도입, `src/world/world.test.ts` 34케이스. 기존 Playwright 스모크도 유지.
 - 에셋 제작 사양: `docs/BASECAMP_STAGE1_ASSET_PRODUCTION_SPEC.md`.
 
+### 2026-09-19 — WORLD VISUAL FIT TEST
+- **진단 먼저, 수치 변경 없음.** 390×844 실측: safe rect 0,42 · 390×736(중심 195,410), zoom 0.417(clamp 아님), world bounds 1152×653, required 896×480, 화면상 월드 481×272(중심 195,401), 세로 채움 37%, 가로 overflow 91px.
+- 랩이 작게 보인 것은 랩 버그가 아니다. 내부 device div의 transform이 containing block을 만들어 390×844를 정확히 시뮬레이션하고 표시만 0.769배 축소한다(카메라 값은 HOME과 동일).
+- 확인된 결함 1건(미수정): Stage 1의 북쪽 벽이 x 0..12까지 그려지는데 cameraBounds는 x 0..9만 프레임한다. 드로잉 폭 1344 vs 프레임 1152 = 192 world px가 프레임 밖.
+- 테스트 스프라이트: C01_MASTER_DIRECTIONS_PIXEL_TEST_03의 좌상단 서 있는 포즈를 connected component로 추출(149×318) → `src/assets/world/C01_TEST_FRONT.png`. 발 접지 중심 x≈61, 바닥 y=318.
+- `world/assets/testSprite.ts`에 개발용 파라미터(enabled / heightUnits / footAnchor / applyToAllCharacters). **최종 규격 아님.** /dev/world에서 실시간 조정.
+- 렌더러가 sprite를 받으면 중립 블록 대신 실제 이미지를 그리고, 발 기준점이 depth anchor 타일 중심에 정확히 닿는다.
+- WORLD BOUNDS 오버레이 추가(실제 월드 경계 + required rect를 디버그 문구와 구분).
+- 결과: 2.2u에서 캐릭터가 화면상 29px. 방 비율/카메라 결정을 위한 판단 근거 확보.
+
 ## 판단 필요 / TODO (문서에 없거나 모호한 항목)
 
 - ~~Growth Curve 표기~~ 승인됨(PHASE 1.1): C05 = HIGH_START_SLOW, C13 = HIGH_START.
@@ -69,3 +79,5 @@
 - **Stage 1 타일 좌표**: 현재 배치는 임시값(FINAL ART POSITION 아님). 승인된 방 아트가 나오면 재작성한다.
 - **tile render 크기 128×64**: PROTOTYPE RENDER VARIABLE. 2:1 비율만 규칙이고 절대값은 미확정.
 - **캐릭터 가림 처리**: depth order는 완성됐으나 실제 sprite masking은 아트 도착 후 검증 필요.
+- **Stage 1 북쪽 벽 x 10..12** (확인된 결함, 미수정): Stage 1은 그 위치에 바닥이 없는데 벽만 그린다. Stage 1 벽을 x 0..9로 줄이고 Stage 2 패치가 x 10..11을 추가하는 것이 해법. 프레이밍 판단과 얮혀 있어 지시 대기 중.
+- **테스트 스프라이트 수치**: heightUnits 2.2 / footAnchor (61,318)은 개발 기본값이며 확정 규격이 아니다.

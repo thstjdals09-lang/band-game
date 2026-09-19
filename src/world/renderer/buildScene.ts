@@ -11,6 +11,7 @@ import { boundsForTiles, PROTOTYPE_PROJECTION, type IsoProjection, type ScreenRe
 import { basecampMapForStage, type BasecampMap } from '../maps';
 import { occupancyPlacements, resolveCharacterPlacements, resolveObjectInstances, type WorldMode } from '../objects/instances';
 import { CHARACTER_SPRITE_CONTRACT } from '../assets/contract';
+import { spriteFor, type TestSpriteParams } from '../assets/testSprite';
 import { OBJECT_DEFINITIONS } from '../objects/definitions';
 import type { RenderNode, WorldScene } from './types';
 
@@ -31,6 +32,8 @@ export interface BuildSceneInput {
   projection?: IsoProjection;
   /** Override the stage (dev lab). Defaults to the stage derived from SaveData. */
   stageOverride?: number;
+  /** WORLD VISUAL FIT TEST stand-in sprite (development only). */
+  testSprite?: TestSpriteParams;
 }
 
 export function buildWorldScene(input: BuildSceneInput): WorldScene {
@@ -109,6 +112,7 @@ export function buildWorldScene(input: BuildSceneInput): WorldScene {
       state: c.pose,
       hitTiles: [c.pos],
       characterId: c.characterId,
+      sprite: input.testSprite ? spriteFor(input.testSprite, c.characterId) : undefined,
       target: c.characterId ? `/?member=${c.characterId}` : '/band',
     });
   });
@@ -120,7 +124,8 @@ export function buildWorldScene(input: BuildSceneInput): WorldScene {
   const required = requiredTiles.length > 0
     ? boundsForTiles(requiredTiles, projection, 2)
     : cameraBoundsOf(map, projection);
-  const camera = fitCameraFocused(cameraBoundsOf(map, projection), required, viewport);
+  const full = cameraBoundsOf(map, projection);
+  const camera = fitCameraFocused(full, required, viewport);
 
   return {
     map,
@@ -128,6 +133,8 @@ export function buildWorldScene(input: BuildSceneInput): WorldScene {
     mode,
     projection,
     camera,
+    worldBounds: full,
+    requiredBounds: required,
     nodes: sortByDepth(nodes),
     spawnPoints: map.spawnPoints,
     occupancyConflicts: occupancy.conflicts(),

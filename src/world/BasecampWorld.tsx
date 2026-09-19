@@ -39,6 +39,7 @@ export function BasecampWorld({ mode = 'home', interactive = true, stageOverride
   const save = useSave();
   const navigate = useNavigate();
   const devFlags = useDevStore((s) => s.world);
+  const testSprite = useDevStore((s) => s.testSprite);
   const diagnostics = useDevStore((s) => s.diagnostics);
   const { ref, size } = useElementSize<HTMLDivElement>();
 
@@ -51,8 +52,9 @@ export function BasecampWorld({ mode = 'home', interactive = true, stageOverride
     save,
     mode,
     stageOverride,
+    testSprite,
     viewport: { width: size.width, height: size.height, insets: resolvedInsets },
-  }), [save, mode, stageOverride, size.width, size.height, resolvedInsets]);
+  }), [save, mode, stageOverride, testSprite, size.width, size.height, resolvedInsets]);
 
   const activeDebug = debug ?? (diagnostics ? devFlags : NO_DEBUG);
 

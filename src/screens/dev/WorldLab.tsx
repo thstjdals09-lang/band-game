@@ -4,6 +4,7 @@
 import { useMemo, useState } from 'react';
 import { useSave } from '@/state/store';
 import { useDevStore, type WorldDebugToggles } from '@/state/devStore';
+import { TEST_SPRITE_LIMITS } from '@/world/assets/testSprite';
 import { BasecampWorld } from '@/world/BasecampWorld';
 import {
   basecampMapForStage, buildWorldScene, cameraBoundsOf,
@@ -29,6 +30,7 @@ const TOGGLE_LABELS: Record<keyof WorldDebugToggles, string> = {
   depthAnchors: 'DEPTH ANCHOR',
   spawnPoints: 'SPAWN POINTS',
   safeArea: 'CAMERA SAFE AREA',
+  worldBounds: 'WORLD BOUNDS',
 };
 
 export function WorldLabScreen() {
@@ -36,6 +38,9 @@ export function WorldLabScreen() {
   const flags = useDevStore((s) => s.world);
   const toggleFlag = useDevStore((s) => s.toggleWorldFlag);
   const setFlags = useDevStore((s) => s.setWorldFlags);
+  const sprite = useDevStore((s) => s.testSprite);
+  const setSprite = useDevStore((s) => s.setTestSprite);
+  const resetSprite = useDevStore((s) => s.resetTestSprite);
   const [stage, setStage] = useState(1);
   const [vp, setVp] = useState(VIEWPORTS[2]);
 
@@ -57,6 +62,10 @@ export function WorldLabScreen() {
   const { scene, grid, bounds, instances, interactive } = report;
   const cam = scene.camera;
   const scale = Math.min(1, 300 / vp.width);
+  const onScreen = {
+    cx: (bounds.x + bounds.width / 2) * cam.zoom + cam.offsetX,
+    cy: (bounds.y + bounds.height / 2) * cam.zoom + cam.offsetY,
+  };
 
   return (
     <Panel title="ISOMETRIC WORLD LAB" subtitle="QA only" nav="back">
@@ -95,8 +104,14 @@ export function WorldLabScreen() {
         <dl className="kv mt12">
           <dt>zoom</dt><dd>{cam.zoom.toFixed(3)}{cam.clamped ? ' (clamped)' : ''}</dd>
           <dt>offset</dt><dd>{Math.round(cam.offsetX)}, {Math.round(cam.offsetY)}</dd>
-          <dt>safe rect</dt><dd>{Math.round(cam.safeRect.width)} × {Math.round(cam.safeRect.height)}</dd>
+          <dt>safe rect</dt><dd>{Math.round(cam.safeRect.x)},{Math.round(cam.safeRect.y)} · {Math.round(cam.safeRect.width)} × {Math.round(cam.safeRect.height)}</dd>
+          <dt>safe centre</dt><dd>{Math.round(cam.safeRect.x + cam.safeRect.width / 2)}, {Math.round(cam.safeRect.y + cam.safeRect.height / 2)}</dd>
           <dt>world bounds</dt><dd>{Math.round(bounds.width)} × {Math.round(bounds.height)}</dd>
+          <dt>required rect</dt><dd>{Math.round(scene.requiredBounds.width)} × {Math.round(scene.requiredBounds.height)}</dd>
+          <dt>world on screen</dt><dd>{Math.round(bounds.width * cam.zoom)} × {Math.round(bounds.height * cam.zoom)}</dd>
+          <dt>world centre</dt><dd>{Math.round(onScreen.cx)}, {Math.round(onScreen.cy)}</dd>
+          <dt>vertical fill</dt><dd>{Math.round((bounds.height * cam.zoom / Math.max(1, cam.safeRect.height)) * 100)}%</dd>
+          <dt>horizontal overflow</dt><dd>{Math.round(Math.max(0, bounds.width * cam.zoom - cam.safeRect.width))}px</dd>
           <dt>tile render</dt><dd>{PROTOTYPE_PROJECTION.tileWidth} × {PROTOTYPE_PROJECTION.tileHeight}</dd>
         </dl>
       </Section>
@@ -110,10 +125,59 @@ export function WorldLabScreen() {
           ))}
         </div>
         <div className="row mt12">
-          <Btn size="sm" variant="secondary" onClick={() => setFlags({ grid: true, coordinates: true, footprints: true, interactionTiles: true, depthAnchors: true, spawnPoints: true, safeArea: true })}>ALL ON</Btn>
-          <Btn size="sm" variant="ghost" onClick={() => setFlags({ grid: false, coordinates: false, footprints: false, interactionTiles: false, depthAnchors: false, spawnPoints: false, safeArea: false })}>ALL OFF</Btn>
+          <Btn size="sm" variant="secondary" onClick={() => setFlags({ grid: true, coordinates: true, footprints: true, interactionTiles: true, depthAnchors: true, spawnPoints: true, safeArea: true, worldBounds: true })}>ALL ON</Btn>
+          <Btn size="sm" variant="ghost" onClick={() => setFlags({ grid: false, coordinates: false, footprints: false, interactionTiles: false, depthAnchors: false, spawnPoints: false, safeArea: false, worldBounds: false })}>ALL OFF</Btn>
         </div>
         <div className="rowcard__meta mt8">오버레이는 /dev diagnostics가 켜져 있을 때만 실제 HOME에도 적용된다.</div>
+      </Section>
+
+      <Section title="Test sprite (visual fit)">
+        <div className="rowcard rowcard--stack">
+          <div className="row row--between">
+            <span className="rowcard__title">{sprite.assetKey}</span>
+            <Btn size="sm" variant={sprite.enabled ? 'primary' : 'secondary'} onClick={() => setSprite({ enabled: !sprite.enabled })}>
+              {sprite.enabled ? 'ON' : 'OFF'}
+            </Btn>
+          </div>
+          <div className="rowcard__meta mono mt8">
+            source {sprite.sourceSize.w}×{sprite.sourceSize.h}px · {sprite.characterId}
+          </div>
+
+          <div className="row row--between mt12">
+            <span className="rowcard__meta">height (elevation units)</span>
+            <span className="stepper">
+              <button onClick={() => setSprite({ heightUnits: Math.max(TEST_SPRITE_LIMITS.heightUnits.min, +(sprite.heightUnits - TEST_SPRITE_LIMITS.heightUnits.step).toFixed(2)) })}>−</button>
+              <span>{sprite.heightUnits.toFixed(1)} u · {Math.round(sprite.heightUnits * PROTOTYPE_PROJECTION.elevationHeight)}px</span>
+              <button onClick={() => setSprite({ heightUnits: Math.min(TEST_SPRITE_LIMITS.heightUnits.max, +(sprite.heightUnits + TEST_SPRITE_LIMITS.heightUnits.step).toFixed(2)) })}>+</button>
+            </span>
+          </div>
+
+          <div className="row row--between mt12">
+            <span className="rowcard__meta">foot anchor X</span>
+            <span className="stepper">
+              <button onClick={() => setSprite({ footAnchor: { ...sprite.footAnchor, x: sprite.footAnchor.x - TEST_SPRITE_LIMITS.footAnchor.step } })}>−</button>
+              <span>{sprite.footAnchor.x}px</span>
+              <button onClick={() => setSprite({ footAnchor: { ...sprite.footAnchor, x: sprite.footAnchor.x + TEST_SPRITE_LIMITS.footAnchor.step } })}>+</button>
+            </span>
+          </div>
+
+          <div className="row row--between mt12">
+            <span className="rowcard__meta">foot anchor Y</span>
+            <span className="stepper">
+              <button onClick={() => setSprite({ footAnchor: { ...sprite.footAnchor, y: sprite.footAnchor.y - TEST_SPRITE_LIMITS.footAnchor.step } })}>−</button>
+              <span>{sprite.footAnchor.y}px</span>
+              <button onClick={() => setSprite({ footAnchor: { ...sprite.footAnchor, y: sprite.footAnchor.y + TEST_SPRITE_LIMITS.footAnchor.step } })}>+</button>
+            </span>
+          </div>
+
+          <div className="row mt12">
+            <Btn size="sm" variant={sprite.applyToAllCharacters ? 'primary' : 'secondary'} onClick={() => setSprite({ applyToAllCharacters: !sprite.applyToAllCharacters })}>
+              모든 캐릭터에 적용
+            </Btn>
+            <Btn size="sm" variant="ghost" onClick={resetSprite}>RESET</Btn>
+          </div>
+          <div className="rowcard__meta mt12">값은 개발용이며 최종 규격이 아니다. DEPTH ANCHOR 오버레이를 켜면 발 기준점이 타일 중심에 닿는지 확인할 수 있다.</div>
+        </div>
       </Section>
 
       <Section title={`Objects (${instances.length})`}>
