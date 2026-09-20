@@ -27,6 +27,38 @@ const RELEASED_STATUS_BY_FORMAT: Record<ReleaseKind, SongStatus> = {
 /** Fatigue softening by stamina, matching the weekly engine. */
 const energyFactorOf = (id: CharacterId) => 1 - (CHARACTERS[id].hiddenStats.stamina - 60) / 260;
 
+// ---------------------------------------------------------------- World placement
+/**
+ * 월드에서 인물을 어디에 세울지. 표시 전용이며 규칙·경제·계약을 건드리지 않는다.
+ * 한 번 놓은 인물은 라인업이 바뀌어도 그 자리에 남는다(플레이어의 선택이 이긴다).
+ */
+export const worldActions = {
+  /** id = 멤버의 characterId 또는 세션의 instanceId. */
+  place(id: string, pos: { x: number; y: number }) {
+    update((d) => {
+      const map = d.worldPlacements ?? (d.worldPlacements = {});
+      const prev = map[id];
+      map[id] = { pos: { x: pos.x, y: pos.y }, pose: prev?.pose };
+    });
+  },
+  setPose(id: string, pose: string | undefined) {
+    update((d) => {
+      const map = d.worldPlacements ?? (d.worldPlacements = {});
+      const entry = map[id] ?? (map[id] = {});
+      if (pose) entry.pose = pose; else delete entry.pose;
+      // 자리도 자세도 없으면 기록을 남기지 않는다.
+      if (!entry.pos && !entry.pose) delete map[id];
+    });
+  },
+  /** 기본 자리로 되돌린다. */
+  reset(id: string) {
+    update((d) => { if (d.worldPlacements) delete d.worldPlacements[id]; });
+  },
+  resetAll() {
+    update((d) => { delete d.worldPlacements; });
+  },
+};
+
 // ---------------------------------------------------------------- Audition
 export const auditionActions = {
   toggleShortlist(auditionId: string, id: CharacterId) {

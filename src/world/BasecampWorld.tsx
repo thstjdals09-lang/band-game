@@ -5,8 +5,9 @@
 // player drags freely on both axes to explore what falls outside. Build/preview surfaces still
 // frame the whole room.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSave } from '@/state/store';
+import { worldActions } from '@/state/actions';
 import { useDevStore } from '@/state/devStore';
 import { clampPanTo, NO_INSETS, readChromeInsets, type Camera, type ViewportInsets } from './iso/camera';
 import type { ScreenPoint } from './iso/projection';
@@ -14,6 +15,8 @@ import { buildWorldScene } from './renderer/buildScene';
 import { WorldRenderer } from './renderer/WorldRenderer';
 import { NO_DEBUG, type CameraMode, type RenderNode, type WorldDebugFlags } from './renderer/types';
 import type { WorldMode } from './objects/instances';
+import { hasFloorAt } from './maps/types';
+import type { GridPos } from './iso/coordinates';
 
 /** A pointer that moves further than this is a camera drag, not a tap on an object. */
 const DRAG_THRESHOLD_PX = 6;
@@ -54,6 +57,7 @@ export function BasecampWorld({
 }: Props) {
   const save = useSave();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const devFlags = useDevStore((s) => s.world);
   const testSprite = useDevStore((s) => s.testSprite);
   const devPlayZoom = useDevStore((s) => s.playZoom);
@@ -128,15 +132,37 @@ export function BasecampWorld({
 
   const activeDebug = debug ?? (diagnostics ? devFlags : NO_DEBUG);
 
+  // ---- 배치 모드 (HOME에서 `?place=1`).
+  // 인물을 고른 뒤 바닥 타일을 누르면 그 자리에 선다. 규칙이 정한 자리보다 플레이어의 선택이 이긴다.
+  const placing = mode === 'home' && interactive && params.get('place') === '1';
+  const placingWho = placing ? params.get('who') : null;
+
   const onSelect = (node: RenderNode) => {
-    if (!interactive || !node.target) return;
-    if (suppressClickRef.current) return;
+    if (!interactive || suppressClickRef.current) return;
+    if (placing && node.kind === 'character') {
+      const id = node.id.startsWith('character:') ? node.id.slice('character:'.length) : node.id;
+      const next = new URLSearchParams(params);
+      if (id === placingWho) next.delete('who'); else next.set('who', id);
+      setParams(next, { replace: true });
+      return;
+    }
+    if (!node.target) return;
     navigate(node.target);
   };
 
+  const onPickTile = useCallback((tile: GridPos) => {
+    if (suppressClickRef.current || !placingWho) return;
+    if (!hasFloorAt(scene.map, tile)) return;
+    worldActions.place(placingWho, tile);
+    // 놓고 나면 선택을 푼다. 그래야 바로 다른 인물을 고를 수 있다.
+    const next = new URLSearchParams(params);
+    next.delete('who');
+    setParams(next, { replace: true });
+  }, [placingWho, scene.map, params, setParams]);
+
   return (
     <div
-      className={`world ${canPan ? 'world--pannable' : ''} ${dragging ? 'world--dragging' : ''}`}
+      className={`world ${canPan ? 'world--pannable' : ''} ${dragging ? 'world--dragging' : ''} ${placing ? 'world--placing' : ''}`}
       ref={ref}
       data-stage={scene.stage}
       data-mode={scene.mode}
@@ -150,8 +176,9 @@ export function BasecampWorld({
         <WorldRenderer
           scene={scene}
           debug={activeDebug}
-          onSelectObject={interactive ? onSelect : undefined}
+          onSelectObject={interactive && !placing ? onSelect : undefined}
           onSelectCharacter={interactive ? onSelect : undefined}
+          onPickTile={placingWho ? onPickTile : undefined}
         />
       )}
     </div>

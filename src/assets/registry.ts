@@ -49,7 +49,9 @@ for (const id of CHARACTER_IDS) {
 // never separately illustrated). Dropping a file in that folder registers it - no code change.
 const characterArt = import.meta.glob('./characters/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 for (const [path, url] of Object.entries(characterArt)) {
-  const match = /\/(C\d{2})_(FULL|BUST|THUMB)\.png$/.exec(path);
+  // C01_FULL.png -> CHARACTER_C01_FULL
+  // C01_POSE_1_FULL.png -> CHARACTER_C01_POSE_1_FULL  (자세 그림)
+  const match = /\/(C\d{2})_((?:POSE_[A-Za-z0-9]+_)?(?:FULL|BUST|THUMB))\.png$/.exec(path);
   if (match) assetRegistry[`CHARACTER_${match[1]}_${match[2]}`] = url;
 }
 
@@ -93,6 +95,44 @@ export function sessionAssetKey(seed?: string | number, variant: 'FULL' | 'THUMB
 
 export function characterAssetKey(id: string, variant: 'FULL' | 'BUST' | 'THUMB' = 'FULL'): AssetKey {
   return `CHARACTER_${id}_${variant}`;
+}
+
+/**
+ * 자세 그림의 키 규칙: `CHARACTER_<ID>_POSE_<이름>_FULL`.
+ * 파일을 그 이름으로 characters/ 에 넣으면 위의 glob이 자동으로 등록한다.
+ * (자세 그림은 액션 시트에서 잘라 넣을 예정이라 지금은 비어 있다.)
+ */
+export function characterPoseAssetKey(id: string, pose?: string): AssetKey {
+  if (pose) {
+    const key = `CHARACTER_${id}_POSE_${pose}_FULL`;
+    if (assetRegistry[key]) return key;
+  }
+  return `CHARACTER_${id}_FULL`;
+}
+
+/** 이 인물에게 실제로 그림이 있는 자세 이름들. 그림이 없으면 빈 배열이다. */
+export function characterPoses(id: string): string[] {
+  const prefix = `CHARACTER_${id}_POSE_`;
+  return Object.keys(assetRegistry)
+    .filter((k) => k.startsWith(prefix) && k.endsWith('_FULL') && assetRegistry[k])
+    .map((k) => k.slice(prefix.length, -'_FULL'.length))
+    .sort();
+}
+
+/**
+ * 자세 자리. 지금은 그림이 없어 비어 있고, 파일을 넣으면 그 자리가 켜진다.
+ * 파일 이름: `src/assets/characters/<ID>_POSE_<이름>_FULL.png` (예: C01_POSE_1_FULL.png)
+ */
+export const POSE_SLOTS = ['1', '2', '3', '4'] as const;
+
+export function characterPoseSlots(id: string): { name: string; label: string; ready: boolean }[] {
+  const ready = new Set(characterPoses(id));
+  const extra = [...ready].filter((n) => !POSE_SLOTS.includes(n as typeof POSE_SLOTS[number]));
+  return [...POSE_SLOTS, ...extra].map((name) => ({
+    name,
+    label: /^\d+$/.test(name) ? `자세${name}` : name,
+    ready: ready.has(name),
+  }));
 }
 
 /** Register asset keys declared elsewhere (world tiles / object state variants). */

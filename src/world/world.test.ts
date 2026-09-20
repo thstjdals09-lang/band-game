@@ -11,7 +11,7 @@ import {
   MIN_TAP_RADIUS_PX, isTileInSafeArea, boundsForTiles,
   createCamera, clampPanTo, isTileReachable, DEFAULT_CAMERA_CONFIG,
 } from './iso';
-import { BASECAMP_STAGE_1, BASECAMP_STAGE_2, basecampMapForStage, applyMapPatch, spawnForSlot, hasFloorAt } from './maps';
+import { BASECAMP_STAGE_1, BASECAMP_STAGE_2, basecampMapForStage, applyMapPatch, hasFloorAt } from './maps';
 import { BASECAMP_STAGE_2_PATCH } from './maps/basecampStage2';
 import { OBJECT_DEFINITIONS, depthAnchorFor, interactionTileFor } from './objects/definitions';
 import { occupancyPlacements, resolveCharacterPlacements, resolveObjectInstances } from './objects/instances';
@@ -254,24 +254,48 @@ describe('stage 1 -> stage 2 state mapping', () => {
 
 // 8 ------------------------------------------------------------------ character spawns
 describe('character spawn architecture', () => {
-  it('places lineup members on their slot spawn tile, not on screen percentages', () => {
-    const placements = resolveCharacterPlacements(BASECAMP_STAGE_1, saveWithBand());
-    const vocal = placements.find((p) => p.characterId === 'C01')!;
-    expect(vocal.pos).toEqual(spawnForSlot(BASECAMP_STAGE_1, 'VOCAL')!.pos);
-    expect(Number.isInteger(vocal.pos.x) && Number.isInteger(vocal.pos.y)).toBe(true);
-  });
-
-  it('places a hired session on the slot it fills', () => {
-    const session = resolveCharacterPlacements(BASECAMP_STAGE_1, saveWithBand()).find((p) => p.kind === 'session')!;
-    expect(session.pos).toEqual(spawnForSlot(BASECAMP_STAGE_1, 'BASS')!.pos);
-  });
-
-  it('sends unassigned members to idle spawns without sharing a tile', () => {
+  it('stands only the lineup on the map, whatever the roster size', () => {
     const save = saveWithBand();
-    save.band.activeMembers = ['C01', 'C04', 'C07'];
+    // 보유 멤버는 늘어나도, 라인업에 넣지 않은 인물은 방에 서지 않는다.
+    save.band.activeMembers = ['C01', 'C04', 'C07', 'C10', 'C02'];
     const placements = resolveCharacterPlacements(BASECAMP_STAGE_1, save);
+    expect(placements.map((p) => p.id).sort()).toEqual(['C01', 'C04', 'session_00001']);
+  });
+
+  it('gives every placed character its own floor tile by default', () => {
+    const placements = resolveCharacterPlacements(BASECAMP_STAGE_1, saveWithBand());
     const keys = placements.map((p) => `${p.pos.x},${p.pos.y}`);
     expect(new Set(keys).size).toBe(keys.length);
+    placements.forEach((p) => {
+      expect(hasFloorAt(BASECAMP_STAGE_1, p.pos)).toBe(true);
+      expect(Number.isInteger(p.pos.x) && Number.isInteger(p.pos.y)).toBe(true);
+    });
+  });
+
+  it('lets the player placement win over the default spot', () => {
+    const save = saveWithBand();
+    save.worldPlacements = { C01: { pos: { x: 6, y: 6 } } };
+    const vocal = resolveCharacterPlacements(BASECAMP_STAGE_1, save).find((p) => p.id === 'C01')!;
+    expect(vocal.pos).toEqual({ x: 6, y: 6 });
+    // 라인업이 바뀌어도 놓아둔 자리에 남는다.
+    save.band.lineup[0].assignment = null;
+    save.band.lineup[3].assignment = { kind: 'MEMBER', characterId: 'C01' };
+    const moved = resolveCharacterPlacements(BASECAMP_STAGE_1, save).find((p) => p.id === 'C01')!;
+    expect(moved.pos).toEqual({ x: 6, y: 6 });
+  });
+
+  it('ignores a stored placement that is not on the floor', () => {
+    const save = saveWithBand();
+    save.worldPlacements = { C01: { pos: { x: 99, y: 99 } } };
+    const vocal = resolveCharacterPlacements(BASECAMP_STAGE_1, save).find((p) => p.id === 'C01')!;
+    expect(hasFloorAt(BASECAMP_STAGE_1, vocal.pos)).toBe(true);
+  });
+
+  it('falls back to the standing art when the named pose has no picture yet', () => {
+    const save = saveWithBand();
+    save.worldPlacements = { C01: { pos: { x: 6, y: 6 }, pose: 'SIT' } };
+    const vocal = resolveCharacterPlacements(BASECAMP_STAGE_1, save).find((p) => p.id === 'C01')!;
+    expect(vocal.assetKey).toBe('CHARACTER_C01_FULL');
   });
 
   it('never spawns a character on a blocked tile', () => {
@@ -412,14 +436,18 @@ describe('play camera and drag panning', () => {
 describe('test sprite placement', () => {
   it('resolves the sprite from the node asset key, never from another character', () => {
     // 각 에셋은 자기 메트릭으로 선다.
-    for (const key of ['CHARACTER_C01_FULL', 'CHARACTER_C04_FULL', 'SESSION_01_FULL']) {
+    for (const key of ['CHARACTER_C01_FULL', 'CHARACTER_C04_FULL', 'SESSION_01_FULL', 'CHARACTER_C01_POSE_1_FULL']) {
       const placed = spriteFor(DEFAULT_TEST_SPRITE, key);
       expect(placed?.assetKey).toBe(key);
+      expect(placed?.mode).toBe('exact');
       expect(placed?.sourceSize).toEqual(SPRITE_METRICS[key].sourceSize);
       expect(placed?.footAnchor).toEqual(SPRITE_METRICS[key].footAnchor);
     }
-    // 등록된 이미지가 없으면 남의 이미지를 빌려오지 않고 스프라이트를 받지 않는다.
-    expect(spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C03_FULL')).toBeUndefined();
+    // 아직 크기를 재지 않은 그림(방금 넣은 자세 등)도 자기 키로 세워진다.
+    const fresh = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C02_POSE_9_FULL');
+    expect(fresh?.assetKey).toBe('CHARACTER_C02_POSE_9_FULL');
+    expect(fresh?.mode).toBe('fit');
+    // 남의 이미지를 빌려오는 경로는 없다.
     expect(spriteFor(DEFAULT_TEST_SPRITE, undefined)).toBeUndefined();
     expect(spriteFor({ ...DEFAULT_TEST_SPRITE, enabled: false }, 'CHARACTER_C01_FULL')).toBeUndefined();
   });
@@ -444,7 +472,7 @@ describe('test sprite placement', () => {
     });
     const node = scene.nodes.find((n) => n.id === 'character:C01')!;
     expect(node.sprite?.assetKey).toBe('CHARACTER_C01_FULL');
-    expect(node.anchor).toEqual(spawnForSlot(BASECAMP_STAGE_1, 'VOCAL')!.pos);
+    expect(hasFloorAt(BASECAMP_STAGE_1, node.anchor)).toBe(true);
   });
 
   it('lands the foot anchor exactly on the spawn tile centre at any scale', () => {

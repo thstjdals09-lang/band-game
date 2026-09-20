@@ -42,28 +42,40 @@ export const TEST_SPRITE_LIMITS = {
 /** Sprite placement resolved for the renderer. */
 export interface SpritePlacement {
   assetKey: string;
-  sourceSize: { w: number; h: number };
-  footAnchor: { x: number; y: number };
   heightUnits: number;
+  /**
+   * 'exact' = 측정한 크기와 접지점으로 그린다 (SPRITE_METRICS에 있는 에셋).
+   * 'fit'   = 크기를 모르는 새 그림. 높이에 맞춰 넣고 가로 가운데·바닥 기준으로 세운다.
+   *           덕분에 자세 그림을 폴더에 넣기만 해도 바로 월드에 나온다.
+   */
+  mode: 'exact' | 'fit';
+  sourceSize?: { w: number; h: number };
+  footAnchor?: { x: number; y: number };
+  /** heightUnits 높이에 대응하는 source 픽셀 수. 앉은 자세가 서 있는 자세보다 낮게 서는 근거. */
+  heightBasis?: number;
 }
 
 /**
  * 이 노드를 월드에 세울 때 쓸 이미지와 접지 정보.
  *
- * 노드의 assetKey로만 찾는다. 등록된 메트릭이 없는 에셋은 스프라이트를 받지 않고
- * 기존 디버그 표시로 그려진다 — 다른 인물의 이미지를 대신 쓰지 않는다.
+ * 노드의 assetKey로만 찾는다 — 다른 인물의 이미지를 대신 쓰지 않는다.
+ * 크기를 재둔 에셋은 'exact', 아직 재지 않은 에셋은 'fit'으로 세운다.
+ * 레지스트리에 그림 자체가 없으면 렌더러가 이미지를 그리지 않고 기존 디버그 표시로 남긴다.
  */
 export function spriteFor(params: TestSpriteParams, assetKey?: string): SpritePlacement | undefined {
   if (!params.enabled || !assetKey) return undefined;
   const metrics = spriteMetricsFor(assetKey);
-  if (!metrics) return undefined;
+  // 아직 재보지 않은 그림(새로 넣은 자세 등)도 세울 수 있어야 한다.
+  if (!metrics) return { assetKey, heightUnits: params.heightUnits, mode: 'fit' };
   return {
     assetKey,
+    heightUnits: params.heightUnits,
+    mode: 'exact',
     sourceSize: metrics.sourceSize,
+    heightBasis: metrics.heightBasis,
     footAnchor: {
       x: metrics.footAnchor.x + params.footNudge.x,
       y: metrics.footAnchor.y + params.footNudge.y,
     },
-    heightUnits: params.heightUnits,
   };
 }

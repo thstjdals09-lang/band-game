@@ -4,6 +4,8 @@
 import { useSearchParams } from 'react-router-dom';
 import { CHARACTERS, type CharacterId } from '@/data/master';
 import { useSave } from '@/state/store';
+import { worldActions } from '@/state/actions';
+import { characterPoseSlots } from '@/assets/registry';
 import { conditionWord, debutSongRequirement, pendingVenueName, songWorkView, unreadOpportunityCount } from '@/state/selectors';
 import { useGameNav } from '@/app/navigation';
 import { CharacterVisual } from '@/components/CharacterVisual';
@@ -11,7 +13,7 @@ import { BottomSheet, Btn, Tag } from '@/components/ui';
 
 export function BasecampHomeScreen() {
   const save = useSave();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const { go, back } = useGameNav();
   const memberId = params.get('member') as CharacterId | null;
   const member = memberId && CHARACTERS[memberId] ? CHARACTERS[memberId] : null;
@@ -24,6 +26,53 @@ export function BasecampHomeScreen() {
   const work = songWorkView(save);
   // 멤버는 있는데 공연까지 곡이 모자란 구간. 지금 눌러야 할 한 가지를 알려준다.
   const buildingSongs = !noMembers && !venue && unread === 0 && !req.met;
+
+  // 인물 배치 모드. 월드에서 사람을 고르고 바닥 타일을 누르면 그 자리에 선다.
+  const placing = params.get('place') === '1';
+  const who = params.get('who');
+  const whoName = who ? (CHARACTERS[who as CharacterId]?.name ?? '세션') : null;
+  const placed = save.worldPlacements ?? {};
+
+  // 자세는 멤버에게만 있다. 그림이 없는 자리는 눌리지 않는다.
+  const poseSlots = who && CHARACTERS[who as CharacterId] ? characterPoseSlots(who) : [];
+  const currentPose = who ? placed[who]?.pose : undefined;
+
+  if (placing) {
+    return (
+      <div className="homeplace">
+        {who && poseSlots.length > 0 && (
+          <div className="poses">
+            <button
+              className={`poses__chip ${!currentPose ? 'poses__chip--on' : ''}`}
+              onClick={() => worldActions.setPose(who, undefined)}
+            >
+              기본
+            </button>
+            {poseSlots.map((slot) => (
+              <button
+                key={slot.name}
+                className={`poses__chip ${currentPose === slot.name ? 'poses__chip--on' : ''}`}
+                disabled={!slot.ready}
+                onClick={() => worldActions.setPose(who, slot.name)}
+              >
+                {slot.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="homeplace__bar">
+          <span className="grow">{whoName ?? '옮길 사람을 고르세요'}</span>
+          {who && placed[who] && (
+            <Btn size="sm" variant="ghost" onClick={() => worldActions.reset(who)}>되돌리기</Btn>
+          )}
+          <Btn size="sm" variant="secondary" onClick={() => setParams({}, { replace: true })}>완료</Btn>
+        </div>
+        <div className="homeplace__hint">
+          {who ? '바닥 타일을 누르면 그 자리에 선다.' : '월드에서 옮길 사람을 누르세요.'}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -67,6 +116,11 @@ export function BasecampHomeScreen() {
               <div className="rowcard__meta">곡 {req.have}/{req.required} · 새 곡 작업을 예약해 두었다</div>
             </span>
             <span className="rowcard__chev">›</span>
+          </button>
+        )}
+        {!noMembers && (
+          <button className="homeplace__enter" onClick={() => setParams({ place: '1' }, { replace: true })}>
+            인물 배치
           </button>
         )}
         {!noMembers && !venue && unread > 0 && (

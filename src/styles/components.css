@@ -237,6 +237,40 @@
 .homecta__card--calm { border-color: var(--c-border-strong); }
 .homecta__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-accent); flex: none; }
 
+/* ---------- 인물 배치 ---------- */
+/* HOME은 세계가 주인공이므로 배치 진입점은 한 줄로만 둔다 (Visual Bible §08 World 90 / UI 10). */
+.homeplace__enter {
+  align-self: flex-end; min-height: var(--tap); padding: 0 14px; border-radius: var(--radius);
+  border: 1px solid var(--c-border-strong); background: rgba(18, 21, 30, 0.9);
+  color: var(--c-text-dim); font-size: var(--fs-meta); font-weight: 600;
+}
+.homeplace__enter:active { color: var(--c-text); border-color: var(--c-accent); }
+.homeplace { position: absolute; left: var(--gutter); right: var(--gutter); bottom: 14px; }
+.homeplace__bar {
+  display: flex; align-items: center; gap: 8px; min-height: 58px;
+  padding: 10px 12px; border-radius: var(--radius);
+  border: 1px solid var(--c-accent); background: rgba(18, 21, 30, 0.96);
+  font-size: var(--fs-body); font-weight: 600;
+}
+.homeplace__hint { margin-top: 6px; text-align: center; font-size: var(--fs-label); color: var(--c-text-faint); }
+/* 자세 고르기. 그림이 아직 없는 자리는 눌리지 않고 흐리게 남는다. */
+.poses { display: flex; gap: 6px; margin-bottom: 8px; overflow-x: auto; }
+.poses__chip {
+  flex: none; min-height: 40px; padding: 0 12px; border-radius: var(--radius);
+  border: 1px solid var(--c-border-strong); background: rgba(18, 21, 30, 0.96);
+  color: var(--c-text-dim); font-size: var(--fs-meta); font-weight: 600;
+}
+.poses__chip--on { color: var(--c-accent); border-color: var(--c-accent); background: var(--c-accent-soft); }
+.poses__chip:disabled { opacity: 0.35; }
+/* 투명해도 탭은 받아야 하므로 fill: none 이 아니라 transparent 로 둔다. */
+.isoworld__pick { fill: transparent; }
+/* 배치 중에는 바닥이 놓을 수 있는 자리로 보인다. */
+.world--placing .isoworld__pick {
+  fill: rgba(255, 92, 122, 0.035);
+  stroke: rgba(255, 92, 122, 0.22);
+  stroke-width: 1;
+}
+
 /* ---------- Audition roster ---------- */
 /* 후보 전원이 가로 스크롤 없이 보인다. 6명 이상이면 다음 줄로 넘어간다. */
 .roster { display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); gap: 6px; padding: 10px var(--gutter); }

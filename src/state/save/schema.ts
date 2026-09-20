@@ -24,6 +24,18 @@ export interface PlayerState {
   createdAt: string; // ISO
 }
 
+/**
+ * 플레이어가 월드에서 직접 놓은 자리와 자세.
+ * 표시에만 쓰고 게임 규칙·경제·계약에는 전혀 영향이 없다.
+ * 놓은 적 없는 인물은 기존대로 라인업에 따른 기본 자리에 선다. 이력은 남기지 않는다.
+ */
+export interface WorldPlacement {
+  /** 없으면 기본 자리에 선다. 자리는 그대로 두고 자세만 바꿀 수 있다. */
+  pos?: { x: number; y: number };
+  /** 자세 이름. 대응하는 그림이 없으면 기본 서 있는 그림으로 돌아간다. */
+  pose?: string;
+}
+
 export interface WorldState {
   year: number;
   week: number;
@@ -333,4 +345,9 @@ export interface SaveData {
   economy: EconomyState;
   rng: RngState;
   counters: SaveCounters;
+  /**
+   * 월드에서 플레이어가 직접 놓은 자리. 키는 멤버의 characterId 또는 세션의 instanceId.
+   * 선택 항목이라 이 필드가 없는 예전 세이브도 그대로 열린다.
+   */
+  worldPlacements?: Record<string, WorldPlacement>;
 }

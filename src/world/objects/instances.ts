@@ -9,8 +9,8 @@ import { footprintTiles, type GridPos } from '../iso/coordinates';
 import { hitTilesFor } from '../iso/hitTest';
 import type { OccupantPlacement } from '../iso/occupancy';
 import { assetKeyForState, depthAnchorFor, interactionTileFor, OBJECT_DEFINITIONS, type ObjectDefId, type ObjectDefinition } from './definitions';
-import { spawnById, spawnForSlot, type BasecampMap, type SpawnPoint } from '../maps/types';
-import { sessionAssetKey } from '@/assets/registry';
+import { hasFloorAt, type BasecampMap } from '../maps/types';
+import { characterPoseAssetKey, sessionAssetKey } from '@/assets/registry';
 
 export type WorldMode = 'home' | 'build';
 
@@ -112,49 +112,51 @@ export interface WorldCharacterPlacement {
 }
 
 /**
- * Lineup / roster -> spawn points. Characters use world coordinates, never screen percentages.
- * Movement and pathfinding are out of scope: this only places them on their idle spawn.
+ * 맵에 서는 사람은 **라인업에 넣은 인물뿐**이다.
+ * 보유 멤버가 늘어나도 방이 사람으로 가득 차지 않는다.
+ *
+ * 기본 자리는 스폰 목록 순서대로 하나씩 가져간다. 어느 타일이 무슨 악기 자리인지는 쓰지 않는다.
+ * 플레이어가 직접 놓은 자리가 있으면 언제나 그것이 이긴다.
  */
 export function resolveCharacterPlacements(map: BasecampMap, save: SaveData): WorldCharacterPlacement[] {
   const out: WorldCharacterPlacement[] = [];
-  const taken = new Set<string>();
-  const placedMembers = new Set<CharacterId>();
+  const chosen = save.worldPlacements ?? {};
 
-  const take = (spawn: SpawnPoint | undefined): SpawnPoint | undefined => {
-    if (!spawn || taken.has(spawn.id)) return undefined;
-    taken.add(spawn.id);
-    return spawn;
+  // 기본 자리: 의미 없는 순서 목록. 플레이어가 옮기기 전까지 서 있을 곳이면 된다.
+  const spots = map.spawnPoints.map((sp) => sp.pos).filter((pos) => hasFloorAt(map, pos));
+  let nextSpot = 0;
+  const takeSpot = (): GridPos => spots[Math.min(nextSpot++, spots.length - 1)] ?? { x: 1, y: 1 };
+
+  /**
+   * 플레이어가 직접 놓은 자리가 있으면 그것이 이긴다. 라인업이 바뀌어도 움직이지 않는다.
+   * 남아 있는 좌표가 바닥이 아니면(맵이 바뀐 경우) 기본 자리로 돌아간다.
+   */
+  const applyChoice = (p: WorldCharacterPlacement): WorldCharacterPlacement => {
+    const pick = chosen[p.id];
+    if (!pick) return p;
+    const movable = pick.pos && hasFloorAt(map, pick.pos);
+    const assetKey = p.characterId ? characterPoseAssetKey(p.characterId, pick.pose) : p.assetKey;
+    return movable
+      ? { ...p, pos: pick.pos!, spawnId: 'PLAYER_PLACED', assetKey }
+      : { ...p, assetKey };
   };
 
   save.band.lineup.forEach((slot) => {
     const a = slot.assignment;
     if (!a) return;
-    const spawn = take(spawnForSlot(map, slot.slotId));
-    if (!spawn) return;
+    const pos = takeSpot();
     if (a.kind === 'MEMBER') {
-      placedMembers.add(a.characterId);
-      out.push({
+      out.push(applyChoice({
         id: a.characterId, kind: 'member', characterId: a.characterId, label: CHARACTERS[a.characterId].name,
-        pos: spawn.pos, spawnId: spawn.id, pose: 'play', assetKey: `CHARACTER_${a.characterId}_FULL`,
-      });
+        pos, spawnId: 'DEFAULT', pose: 'play', assetKey: `CHARACTER_${a.characterId}_FULL`,
+      }));
     } else {
-      out.push({
+      out.push(applyChoice({
         // 세션도 사람으로 보여야 한다. 같은 세션은 항상 같은 얼굴이다(저장하지 않는다).
         id: a.instanceId, kind: 'session', label: '세션',
-        pos: spawn.pos, spawnId: spawn.id, pose: 'play', assetKey: sessionAssetKey(a.instanceId, 'FULL'),
-      });
+        pos, spawnId: 'DEFAULT', pose: 'play', assetKey: sessionAssetKey(a.instanceId, 'FULL'),
+      }));
     }
-  });
-
-  const idleOrder = ['SOFA_IDLE', 'FREE_IDLE_01', 'FREE_IDLE_02', 'DESK_IDLE', 'RECORDING_IDLE'];
-  save.band.activeMembers.filter((id) => !placedMembers.has(id)).forEach((id, i) => {
-    const spawn = take(spawnById(map, idleOrder[i % idleOrder.length])) ?? take(spawnById(map, 'FREE_IDLE_02'));
-    if (!spawn) return;
-    out.push({
-      id, kind: 'member', characterId: id, label: CHARACTERS[id].name,
-      pos: spawn.pos, spawnId: spawn.id, pose: spawn.kind === 'SOFA' ? 'sit' : 'idle',
-      assetKey: `CHARACTER_${id}_FULL`,
-    });
   });
 
   return out;

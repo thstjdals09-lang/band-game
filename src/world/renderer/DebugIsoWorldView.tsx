@@ -45,15 +45,6 @@ export function DebugIsoWorldView({ scene, debug = NO_DEBUG, onSelectObject, onS
     >
       {/* World space: everything inside is affected by camera zoom/pan. */}
       <g transform={transform}>
-        {onPickTile && floorHitTiles.map((t) => (
-          <polygon
-            key={`pick:${t.x},${t.y}`}
-            points={pointsToSvg(tileDiamond(t, projection))}
-            fill="transparent"
-            onClick={() => onPickTile(t)}
-          />
-        ))}
-
         {nodes.map((n) => (
           <WorldNode
             key={n.id}
@@ -62,6 +53,16 @@ export function DebugIsoWorldView({ scene, debug = NO_DEBUG, onSelectObject, onS
             debug={debug}
             dev={dev}
             onSelect={n.kind === 'character' ? onSelectCharacter : onSelectObject}
+          />
+        ))}
+
+        {/* 놓을 자리는 인물보다 위에 둔다. 아래에 깔면 인물 그림이 타일 탭을 가로챈다. */}
+        {onPickTile && floorHitTiles.map((t) => (
+          <polygon
+            key={`pick:${t.x},${t.y}`}
+            className="isoworld__pick"
+            points={pointsToSvg(tileDiamond(t, projection))}
+            onClick={() => onPickTile(t)}
           />
         ))}
 
@@ -202,16 +203,33 @@ function WorldNode({ node, scene, debug, dev, onSelect }: NodeProps) {
         </>
       )}
       {spriteUrl && node.sprite && (() => {
+        const sprite = node.sprite;
+        const drawH = sprite.heightUnits * projection.elevationHeight;
+        if (sprite.mode === 'fit' || !sprite.sourceSize || !sprite.footAnchor) {
+          // 크기를 모르는 그림: 높이에 맞춰 넣고 가로 가운데·바닥 기준으로 세운다.
+          const boxW = projection.tileWidth * 2;
+          return (
+            <image
+              className="isoworld__sprite"
+              href={spriteUrl}
+              x={centre.x - boxW / 2}
+              y={centre.y - drawH}
+              width={boxW}
+              height={drawH}
+              preserveAspectRatio="xMidYMax meet"
+            />
+          );
+        }
         // Foot anchor lands exactly on the depth-anchor tile centre; scale comes from heightUnits.
-        const s = (node.sprite.heightUnits * projection.elevationHeight) / node.sprite.sourceSize.h;
+        const s = drawH / (sprite.heightBasis ?? sprite.sourceSize.h);
         return (
           <image
             className="isoworld__sprite"
             href={spriteUrl}
-            x={centre.x - node.sprite.footAnchor.x * s}
-            y={centre.y - node.sprite.footAnchor.y * s}
-            width={node.sprite.sourceSize.w * s}
-            height={node.sprite.sourceSize.h * s}
+            x={centre.x - sprite.footAnchor.x * s}
+            y={centre.y - sprite.footAnchor.y * s}
+            width={sprite.sourceSize.w * s}
+            height={sprite.sourceSize.h * s}
             preserveAspectRatio="xMidYMax meet"
           />
         );
