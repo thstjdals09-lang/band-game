@@ -379,7 +379,8 @@
 .roster__card:not(.roster__card--selected) .ph--thumb { opacity: 0.6; }
 .roster__card:not(.roster__card--selected) .roster__name { color: var(--c-text-faint); }
 .roster__card:not(.roster__card--selected) .roster__pos { opacity: 0.6; }
-.roster__card .ph--thumb { width: 100%; height: auto; aspect-ratio: 3 / 2; border-radius: 6px; }
+/* 초상은 정사각으로 둔다. 카드 폭이 달라져도 잘리는 비율이 늘 같다. */
+.roster__card .ph--thumb { width: 100%; height: auto; aspect-ratio: 1 / 1; border-radius: 6px; }
 .roster__name { font-size: var(--fs-meta); font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .roster__pos { font-size: 10px; letter-spacing: 0.03em; color: var(--c-text-dim); font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 로스터의 포지션 글자도 히어로의 포지션 태그와 같은 색을 쓴다. */
@@ -532,10 +533,10 @@
 
 /* 화면 전체를 덮는 상자는 두지 않는다. 배경 장면이 그대로 보인다. */
 .aud { display: flex; flex-direction: column; gap: 6px; }
-/* 인물 정보는 고정 블록의 아래 경계에서 시작해, 이 칸 안에서만 스크롤된다.
-   위 블록을 가리거나 그 뒤로 들어가지 않는다. */
+/* 수치와 결정만 담는 칸. 자리가 모자랄 때 여기만 줄어들고 여기만 스크롤된다.
+   위 블록과 인물 정보는 끌려오지 않는다. */
 .aud__scroll {
-  flex: 1 1 auto; min-height: 0;
+  flex: 0 1 auto; min-height: 0;
   overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;
   display: flex; flex-direction: column; gap: 6px;
 }
@@ -546,7 +547,13 @@
   flex: 0 0 auto; border-radius: 14px; padding: 4px;
   background: rgba(12, 15, 23, 0.34);
 }
-.aud__head { display: flex; align-items: center; gap: 4px; padding: 0 2px 2px; }
+.aud__head { display: flex; align-items: center; gap: 2px; padding: 0 2px 2px; }
+/* 제목과 후보 수가 한 행에 선다. 글자 크기와 밝기는 그대로 둬 위아래로 쌓였을 때와
+   같은 층이 읽히게 한다. 아랫줄이 사라진 만큼 이 행이 낮아진다. */
+.aud__titles { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.aud__titles .panel__sub { margin-top: 0; flex: none; }
+/* 닫기 버튼이 행 높이를 끌어올리던 자리. 누를 면적은 남기되 세로만 낮춘다. */
+.aud__head .panel__nav { width: 40px; height: 36px; font-size: 19px; }
 /* 좌우 버튼이 그룹 폭을 넘어 걸치도록, 그룹을 감싸는 자리 */
 .aud__rosternav { position: relative; flex: 0 0 auto; }
 /* 화살표만 보인다. 누를 수 있는 면적은 넉넉히 두되 면은 깔지 않는다. */
@@ -565,15 +572,12 @@
 /* 화면의 중심. 테두리도 배경도 없다. */
 /* 인물은 배경 일러스트가 맡는다. 이 칸에는 글자만, 오른쪽에 모아 올린다.
    왼쪽은 일러스트가 보이도록 비워 둔다. 이 묶음에는 면을 깔지 않는다. */
-/* 남는 자리를 받되, 자리가 모자라면 가장 먼저 줄어드는 칸이다.
-   여기가 버티면 아래 수치 패널이 화면 밖으로 밀려 스크롤이 생긴다. */
-/* 남는 자리를 받되, 자리가 모자라면 제 글자 높이까지 줄어든다. 바닥값을 따로 두지 않는다 —
-   여기가 버티면 아래 수치 패널이 밀려 스크롤이 생기고, 바닥값이 글자보다 작으면 이름이 잘린다. */
-/* 남는 자리를 받되, 자리가 모자라면 제 글자 높이까지만 줄어든다.
-   overflow 를 걸면 min-height 가 0 으로 풀려 이름이 잘린다 — 걸지 않는다. */
+/* 제 글자 높이만 차지한다. 남는 자리는 margin-top:auto 로 위에 내줘 일러스트가 넓게 보인다.
+   스크롤 칸 밖에 있으므로 수치를 굴려도 이 자리에 그대로 남는다.
+   overflow 를 걸면 min-height:auto 가 0 으로 풀려 이름이 잘린다 — 걸지 않는다. */
 .aud__hero {
-  flex: 1 1 auto;
-  display: flex; align-items: flex-end; justify-content: flex-end; padding: 2px 6px 10px;
+  flex: 0 0 auto; margin-top: auto;
+  display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 6px 6px;
 }
 .aud__id {
   justify-content: center; align-items: flex-end; text-align: right;
@@ -599,14 +603,12 @@
 @media (max-height: 730px) {
   .aud { gap: 4px; padding-bottom: 8px; }
   .aud__scroll { gap: 4px; }
-  .aud__hero { padding-bottom: 6px; }
+  .aud__hero { padding-bottom: 4px; }
   .aud__id { gap: 2px; }
   .aud__id .tag { padding-top: 2px; padding-bottom: 2px; }
   .aud__panel { padding: 9px 12px 10px; }
   .aud__foot { margin-top: 5px; }
-  .aud__actions { margin-top: 8px; }
   .fstats--compact { gap: 5px; margin-top: 7px; }
-  .roster__card .ph--thumb { aspect-ratio: 5 / 3; }
 }
 
 /* 하위 패널 2 — 왜 이 사람인가 + 수치 */
@@ -639,8 +641,8 @@
 .aud__foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 7px; }
 .aud__among, .badges__among { font-size: var(--fs-label); color: var(--c-text-faint); }
 
-/* 결정 — 주 버튼 하나 + 보조 둘 */
-.aud__actions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+/* 결정 — 수치 상자 밖, 그 위 행. 스크롤 칸 밖이라 수치를 굴려도 제자리에 남는다. */
+.aud__actions { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; }
 /* 계약 협상이 이 화면의 유일한 강조다. 상세 보기는 조용한 면으로 한 단 내려둔다. */
 .aud__actions .btn--primary {
   background: linear-gradient(180deg, #ff7d9c 0%, var(--c-accent) 52%, #ef4767 100%);

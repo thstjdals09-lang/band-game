@@ -119,9 +119,10 @@ export function AuditionScreen() {
           <div className="aud__group">
             <div className="aud__head">
               <button className="panel__nav" onClick={closeToHome} aria-label="close">×</button>
-              <div className="grow">
-                <div className="panel__title">오디션</div>
-                <div className="panel__sub">후보 {audition.candidateIds.length}명</div>
+              {/* 한 행에 나란히. 크기와 밝기 차이가 둘의 층을 대신한다. */}
+              <div className="grow aud__titles">
+                <span className="panel__title">오디션</span>
+                <span className="panel__sub">후보 {audition.candidateIds.length}명</span>
               </div>
             </div>
             <RosterStrip audition={audition} selectedId={selectedId} onSelect={select} listRef={listRef} />
@@ -134,8 +135,6 @@ export function AuditionScreen() {
           )}
           </div>
 
-          {/* 고정된 상단 블록 아래에서 시작하는 영역. 여기만 스크롤된다. */}
-          <div className="aud__scroll">
           {/* 화면의 중심. 박스를 두르지 않는다.
               인물은 배경 일러스트가 보여주므로 전신 픽셀 스프라이트는 여기에 두지 않는다.
               픽셀 초상은 위 후보 스트립에만 남는다. */}
@@ -159,7 +158,19 @@ export function AuditionScreen() {
             </div>
           </div>
 
-          {/* 하나의 투명 상자 — 강점 · 수치 · 결정을 묶는다 */}
+          {/* 결정 — 주 버튼 하나 + 보조 하나. 수치 상자 밖, 그 위 행에 고정으로 둔다.
+              수치를 굴려도 따라 움직이지 않는다. */}
+          {/* 쇼트리스트와 비교 기능은 그대로 두고 이 화면에서만 감춘다. */}
+          <div className="aud__actions">
+            <div className="row" style={{ gap: 8 }}>
+              <Btn variant="secondary" full onClick={() => go(`/audition/candidate/${selectedId}`)}>상세 보기</Btn>
+              <Btn variant="primary" full onClick={() => go(`/audition/contract/${selectedId}`)}>계약 협상</Btn>
+            </div>
+          </div>
+
+          {/* 수치만 이 칸에 담는다. 자리가 모자랄 때 여기만 스크롤된다. */}
+          <div className="aud__scroll">
+          {/* 하나의 투명 상자 — 강점과 수치를 묶는다 */}
           <div className="aud__panel">
             <div className="aud__badges">
               <span className="aud__among">후보 {view.fieldSize}명 중</span>
@@ -168,15 +179,6 @@ export function AuditionScreen() {
             {revealed.includes('BASE_STATS') && <FieldStats view={view} compact legend={false} />}
             <div className="aud__foot">
               <span className="fstats__legend"><span className="fstats__tick" /> 이번 오디션 후보 평균</span>
-            </div>
-
-            {/* 결정 — 주 버튼 하나 + 보조 둘 */}
-            {/* 쇼트리스트와 비교 기능은 그대로 두고 이 화면에서만 감춘다. */}
-            <div className="aud__actions">
-              <div className="row" style={{ gap: 8 }}>
-                <Btn variant="secondary" full onClick={() => go(`/audition/candidate/${selectedId}`)}>상세 보기</Btn>
-                <Btn variant="primary" full onClick={() => go(`/audition/contract/${selectedId}`)}>계약 협상</Btn>
-              </div>
             </div>
           </div>
           </div>
