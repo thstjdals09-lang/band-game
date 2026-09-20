@@ -171,11 +171,11 @@
 .tag--ok { color: var(--c-ok); border-color: var(--c-ok); }
 .tag--mute { color: var(--c-text-faint); border-color: var(--c-border); }
 /* 포지션마다 다른 색. 특성 태그(노란 계열)와 겹치지 않게 고른다. */
-.tag--vocal  { color: #ff7ea8; border-color: #ff7ea8; font-weight: 700; letter-spacing: 0.04em; }
-.tag--guitar { color: #5b74d8; border-color: #5b74d8; font-weight: 700; letter-spacing: 0.04em; }
-.tag--bass   { color: #8fe3a8; border-color: #8fe3a8; font-weight: 700; letter-spacing: 0.04em; }
-.tag--drums  { color: #c79bff; border-color: #c79bff; font-weight: 700; letter-spacing: 0.04em; }
-.tag--keys   { color: #3fe0c8; border-color: #3fe0c8; font-weight: 700; letter-spacing: 0.04em; }
+.tag--vocal  { color: var(--pos-vocal);  border-color: var(--pos-vocal);  font-weight: 700; letter-spacing: 0.04em; }
+.tag--guitar { color: var(--pos-guitar); border-color: var(--pos-guitar); font-weight: 700; letter-spacing: 0.04em; }
+.tag--bass   { color: var(--pos-bass);   border-color: var(--pos-bass);   font-weight: 700; letter-spacing: 0.04em; }
+.tag--drums  { color: var(--pos-drums);  border-color: var(--pos-drums);  font-weight: 700; letter-spacing: 0.04em; }
+.tag--keys   { color: var(--pos-keys);   border-color: var(--pos-keys);   font-weight: 700; letter-spacing: 0.04em; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* ---------- Grade / status ---------- */
@@ -301,8 +301,12 @@
 /* 고르는 곳. 후보 전원이 가로 스크롤 없이 한 줄에 보이고, 화면 높이를 적게 먹는다. */
 /* 후보가 많아지면 옆으로 넘겨서 본다. 적을 때는 폭을 나눠 한 줄에 다 들어온다. */
 .roster {
-  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(58px, 1fr);
-  gap: 6px; padding: 0; flex: 0 0 auto;
+  /* 카드 폭을 고정한다. 후보가 적다고 카드가 늘어나 상자 크기가 변하면 안 된다. */
+  /* 자리가 남으면 가운데로 모으고, 넘치면 왼쪽부터 채워 스크롤한다(safe). 간격은 그대로. */
+  /* 화면 폭과 무관하게 정확히 4장만 보인다. 5번째는 경계 밖에서 시작해 살짝도 비치지 않는다. */
+  display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 18px) / 4);
+  justify-content: safe center;
+  gap: 6px; padding: 0; flex: 0 0 auto; scroll-behavior: smooth;
   overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity;
 }
 .roster::-webkit-scrollbar { height: 0; }
@@ -322,9 +326,16 @@
 }
 .roster__card:not(.roster__card--selected) .ph--thumb { opacity: 0.72; }
 .roster__card:not(.roster__card--selected) .roster__name { color: var(--c-text-dim); }
-.roster__card .ph--thumb { width: 100%; height: auto; aspect-ratio: 1; border-radius: 7px; }
+.roster__card:not(.roster__card--selected) .roster__pos { opacity: 0.8; }
+.roster__card .ph--thumb { width: 100%; height: auto; aspect-ratio: 6 / 5; border-radius: 7px; }
 .roster__name { font-size: var(--fs-meta); font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .roster__pos { font-size: 10px; letter-spacing: 0.03em; color: var(--c-text-dim); font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 로스터의 포지션 글자도 히어로의 포지션 태그와 같은 색을 쓴다. */
+.roster__pos--vocal  { color: var(--pos-vocal); }
+.roster__pos--guitar { color: var(--pos-guitar); }
+.roster__pos--bass   { color: var(--pos-bass); }
+.roster__pos--drums  { color: var(--pos-drums); }
+.roster__pos--keys   { color: var(--pos-keys); }
 /* 그 사람의 가장 높은 스탯 한 줄. 후보 중 1위면 강조한다. */
 .roster__sig { font-family: var(--font-mono); font-size: 11px; color: var(--c-text-dim); margin-top: 1px; }
 .roster__sig--lead { color: var(--c-accent); font-weight: 700; }
@@ -443,10 +454,23 @@
 /* 헤더와 로스터 사이에 틈이 생기지 않게 한다. */
 .panel--scene .panel__body--flush > .aud { padding-top: 0; }
 
-.aud { position: relative; z-index: 1; height: 100%; min-height: 0; padding: 0 12px 22px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.aud { position: relative; z-index: 1; height: 100%; min-height: 0; padding: 0 12px 22px; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 /* 선택한 후보의 장면. 패널 전체(HUD 뒤 포함)를 덮고, 위아래를 어둡게 해 글자를 방해하지 않는다. */
 .aud__scene { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
-.aud__scene img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.aud__scene img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+/* 후보를 바꿀 때: 아래 그림은 100%로 그대로 두고 새 그림만 위로 올라온다.
+   둘 다 반투명해지면 합쳐진 불투명도가 떨어져 뒤(홈 월드)가 비친다. */
+.aud__scene__hold { opacity: 1; }
+.aud__scene__in { animation: sceneIn 120ms ease-out forwards; }
+/* 올라올 그림이 없을 때만 걷어낸다. */
+.aud__scene__out { animation: sceneOut 120ms ease-out forwards; }
+/* 거의 다 올라온 상태에서 시작한다. 끊김만 없애는 아주 미묘한 전환. */
+@keyframes sceneIn { from { opacity: 0.6; } to { opacity: 1; } }
+@keyframes sceneOut { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .aud__scene__out, .aud__scene__in { animation: none; }
+  .aud__scene__out { opacity: 0; }
+}
 .aud__scene::after {
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(180deg, rgba(10, 13, 20, 0.30) 0%, rgba(10, 13, 20, 0.45) 45%, rgba(10, 13, 20, 0.78) 100%);
@@ -458,10 +482,24 @@
 /* 하위 패널 1 — 고르는 곳 */
 /* 제목 · 닫기 · 후보 스트립을 담는 하나의 그룹 상자 */
 .aud__group {
-  flex: 0 0 auto; border-radius: 16px; padding: 6px;
+  flex: 0 0 auto; border-radius: 16px; padding: 5px;
   background: rgba(12, 15, 23, 0.34);
 }
-.aud__head { display: flex; align-items: center; gap: 4px; padding: 2px 2px 6px; }
+.aud__head { display: flex; align-items: center; gap: 4px; padding: 0 2px 4px; }
+/* 좌우 버튼이 그룹 폭을 넘어 걸치도록, 그룹을 감싸는 자리 */
+.aud__rosternav { position: relative; flex: 0 0 auto; }
+/* 화살표만 보인다. 누를 수 있는 면적은 넉넉히 두되 면은 깔지 않는다. */
+.rosternav {
+  /* top 은 카드 영역의 세로 한가운데로 화면이 직접 넣어 준다. */
+  position: absolute; transform: translateY(-50%); z-index: 3; width: 38px; height: 50px;
+  display: grid; place-items: center;
+  font-size: 42px; line-height: 1; font-weight: 700;
+  color: var(--c-text); background: none; border: 0;
+  text-shadow: 0 3px 5px rgba(0, 0, 0, 0.7), 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+.rosternav--prev { left: -12px; }
+.rosternav--next { right: -12px; }
+.rosternav:active { color: var(--c-accent); }
 
 /* 화면의 중심. 테두리도 배경도 없다. */
 /* 인물은 배경 일러스트가 맡는다. 이 칸에는 글자만, 오른쪽에 모아 올린다.

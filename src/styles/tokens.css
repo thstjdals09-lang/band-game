@@ -23,6 +23,13 @@
   --c-accent: #ff5c7a;
   --c-accent-soft: rgba(255, 92, 122, 0.16);
 
+  /* 포지션 색. 태그와 로스터 카드가 같은 값을 쓴다. 특성 태그의 노란 계열과 겹치지 않는다. */
+  --pos-vocal: #ff7ea8;
+  --pos-guitar: #5b74d8;
+  --pos-bass: #8fe3a8;
+  --pos-drums: #c79bff;
+  --pos-keys: #3fe0c8;
+
   /* Text */
   --c-text: #f0ebe0;
   --c-text-dim: #a8a396;

@@ -85,7 +85,6 @@ export function CandidateDetailScreen() {
     >
       {/* 다른 후보로 바로 넘어갈 수 있다. 뒤로 가기는 여전히 오디션 목록으로 돌아간다. */}
       <RosterStrip
-        save={save}
         audition={audition}
         selectedId={cid}
         compact

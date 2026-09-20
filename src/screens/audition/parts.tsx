@@ -1,25 +1,27 @@
 // 영입 화면(오디션 · 후보 상세 · 비교 · 계약)이 함께 쓰는 표현 조각.
 // 계산은 selectors.ts의 candidateFieldView가 하고, 여기서는 그리기만 한다.
 // 보여주는 것은 전부 이미 공개된 정보다. 숨은 스탯·특성·성장 잠재력은 다루지 않는다.
+import type { RefObject } from 'react';
 import { CHARACTERS, type CharacterId } from '@/data/master';
-import type { AuditionState, SaveData } from '@/state/save/schema';
-import { candidateFieldView, type CandidateFieldView } from '@/state/selectors';
+import { positionTone } from '@/components/ui';
+import type { AuditionState } from '@/state/save/schema';
+import type { CandidateFieldView } from '@/state/selectors';
 import { CharacterVisual } from '@/components/CharacterVisual';
 
 /** 후보 전원이 한 줄에 보이는 로스터. 카드마다 그 사람의 가장 높은 스탯이 한 줄로 붙는다. */
 export function RosterStrip({
-  save, audition, selectedId, onSelect, compact,
+  audition, selectedId, onSelect, compact, listRef,
 }: {
-  save: SaveData;
   audition: AuditionState;
   selectedId: CharacterId;
   onSelect: (id: CharacterId) => void;
   compact?: boolean;
+  /** 좌우 버튼이 이 목록을 넘긴다. */
+  listRef?: RefObject<HTMLDivElement>;
 }) {
   return (
-    <div className={`roster ${compact ? 'roster--compact' : ''}`}>
+    <div className={`roster ${compact ? 'roster--compact' : ''}`} ref={listRef}>
       {audition.candidateIds.map((id) => {
-        const view = candidateFieldView(save, audition.auditionId, id);
         const selected = id === selectedId;
         const starred = audition.shortlistIds.includes(id);
         return (
@@ -35,9 +37,8 @@ export function RosterStrip({
               {starred && compact && <span className="roster__star--inline">★</span>}
               {CHARACTERS[id].name}
             </span>
-            <span className="roster__pos">{CHARACTERS[id].positions[0].toUpperCase()}</span>
-            <span className={`roster__sig ${view.top?.lead ? 'roster__sig--lead' : ''}`}>
-              {view.top ? `${view.top.short} ${view.top.value}` : '?'}
+            <span className={`roster__pos roster__pos--${positionTone(CHARACTERS[id].positions[0])}`}>
+              {CHARACTERS[id].positions[0].toUpperCase()}
             </span>
           </button>
         );

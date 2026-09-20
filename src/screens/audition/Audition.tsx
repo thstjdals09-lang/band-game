@@ -7,6 +7,7 @@
 //
 // 읽는 순서: 후보를 훑고 → 한 명을 고르면 → 그 사람이 가운데를 차지하고 → 강점·수치 → 결정.
 // 긴 설명과 조사 행동은 '상세 보기'가 맡는다. 표시하는 것은 전부 이미 공개된 정보다.
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CHARACTERS, characterQuote, traitName, type CharacterId } from '@/data/master';
 import { useSave } from '@/state/store';
@@ -37,6 +38,38 @@ export function AuditionScreen() {
   const revealed = audition.revealedInformation[selectedId] ?? [];
   const select = (id: CharacterId) => setParams({ c: id }, { replace: true });
 
+  // 후보가 한 화면을 넘으면 좌우 버튼으로 한 쪽씩 넘긴다. 잘린 카드가 남지 않는다.
+  const listRef = useRef<HTMLDivElement>(null);
+  // mid = 버튼을 놓을 높이. 카드 줄이 바뀌어도 항상 카드의 세로 한가운데에 온다.
+  const [nav, setNav] = useState({ left: false, right: false, mid: 0 });
+  const syncNav = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const wrap = el.closest('.aud__rosternav') as HTMLElement | null;
+    const mid = wrap
+      ? el.getBoundingClientRect().top - wrap.getBoundingClientRect().top + el.getBoundingClientRect().height / 2
+      : 0;
+    setNav({ left: el.scrollLeft > 2, right: el.scrollLeft < max - 2, mid });
+  }, []);
+  useEffect(() => {
+    syncNav();
+    const el = listRef.current;
+    if (!el) return undefined;
+    el.addEventListener('scroll', syncNav, { passive: true });
+    window.addEventListener('resize', syncNav);
+    return () => { el.removeEventListener('scroll', syncNav); window.removeEventListener('resize', syncNav); };
+  }, [syncNav, audition.candidateIds.length]);
+  // 한 번에 한 장씩. 1·2·3·4 에서 오른쪽을 누르면 2·3·4·5 가 된다.
+  const page = (dir: 1 | -1) => {
+    const el = listRef.current;
+    if (!el) return;
+    const card = el.querySelector('.roster__card') as HTMLElement | null;
+    const gap = parseFloat(getComputedStyle(el).columnGap || '6') || 6;
+    const step = card ? card.getBoundingClientRect().width + gap : el.clientWidth;
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  };
+
   const quote = characterQuote(selectedId);
   const view = candidateFieldView(save, audition.auditionId, selectedId);
 
@@ -44,7 +77,18 @@ export function AuditionScreen() {
   const badges = view.standouts.slice(0, 2);
 
   // 이 후보의 장면 일러스트가 있으면 카드 뒤에 깐다. 없으면 기존 배경이 그대로 보인다.
-  const sceneUrl = resolveAsset(`CHARACTER_${selectedId}_SCENE`);
+  const sceneUrl = resolveAsset(`CHARACTER_${selectedId}_SCENE`) ?? undefined;
+  // 후보를 바꿀 때 장면이 툭 끊기지 않게, 이전 그림을 한 겹 남겨 겹쳐 넘긴다.
+  const [scene, setScene] = useState<{ prev?: string; cur?: string; k: number }>({ cur: sceneUrl, k: 0 });
+  useEffect(() => {
+    setScene((p) => (p.cur === sceneUrl ? p : { prev: p.cur, cur: sceneUrl, k: p.k + 1 }));
+  }, [sceneUrl]);
+  // 새 그림이 다 올라오면 아래 그림을 치운다. 그 전까지는 100%로 깔려 있어 뒤가 비치지 않는다.
+  useEffect(() => {
+    if (!scene.prev) return undefined;
+    const t = window.setTimeout(() => setScene((p) => ({ ...p, prev: undefined })), 460);
+    return () => window.clearTimeout(t);
+  }, [scene.k, scene.prev]);
 
   return (
     <Panel
@@ -54,12 +98,24 @@ export function AuditionScreen() {
       flush
       scene
       hideHeader
-      background={sceneUrl ? (
-        <div className="aud__scene" aria-hidden><img src={sceneUrl} alt="" /></div>
+      background={(scene.prev || scene.cur) ? (
+        <div className="aud__scene" aria-hidden>
+          {/* 위에 새 그림이 올라오는 동안에는 100%로 버틴다. 올라올 그림이 없을 때만 서서히 걷는다. */}
+          {scene.prev && (
+            <img
+              key={`p${scene.k}`}
+              className={scene.cur ? 'aud__scene__hold' : 'aud__scene__out'}
+              src={scene.prev}
+              alt=""
+            />
+          )}
+          {scene.cur && <img key={`c${scene.k}`} className="aud__scene__in" src={scene.cur} alt="" />}
+        </div>
       ) : undefined}
     >
       <div className="aud">
-          {/* 제목 · 닫기 · 후보 스트립이 하나의 그룹이다 */}
+          {/* 좌우 버튼은 그룹 바깥에서 그룹 폭을 넘어 걸친다 */}
+          <div className="aud__rosternav">
           <div className="aud__group">
             <div className="aud__head">
               <button className="panel__nav" onClick={closeToHome} aria-label="close">×</button>
@@ -68,7 +124,14 @@ export function AuditionScreen() {
                 <div className="panel__sub">후보 {audition.candidateIds.length}명</div>
               </div>
             </div>
-            <RosterStrip save={save} audition={audition} selectedId={selectedId} onSelect={select} />
+            <RosterStrip audition={audition} selectedId={selectedId} onSelect={select} listRef={listRef} />
+          </div>
+          {nav.left && (
+            <button className="rosternav rosternav--prev" style={{ top: nav.mid }} aria-label="이전 후보" onClick={() => page(-1)}>‹</button>
+          )}
+          {nav.right && (
+            <button className="rosternav rosternav--next" style={{ top: nav.mid }} aria-label="다음 후보" onClick={() => page(1)}>›</button>
+          )}
           </div>
 
           {/* 화면의 중심. 박스를 두르지 않는다.
