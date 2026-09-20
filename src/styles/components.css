@@ -572,12 +572,12 @@
 /* 화면의 중심. 테두리도 배경도 없다. */
 /* 인물은 배경 일러스트가 맡는다. 이 칸에는 글자만, 오른쪽에 모아 올린다.
    왼쪽은 일러스트가 보이도록 비워 둔다. 이 묶음에는 면을 깔지 않는다. */
-/* 제 글자 높이만 차지한다. 남는 자리는 margin-top:auto 로 위에 내줘 일러스트가 넓게 보인다.
-   스크롤 칸 밖에 있으므로 수치를 굴려도 이 자리에 그대로 남는다.
+/* 남는 자리를 이 칸이 받는다. 인물이 서 있는 높이가 화면의 중심이고,
+   글자는 그 아래쪽 끝에 붙는다. 스크롤 칸 밖이라 수치를 굴려도 제자리에 남는다.
    overflow 를 걸면 min-height:auto 가 0 으로 풀려 이름이 잘린다 — 걸지 않는다. */
 .aud__hero {
-  flex: 0 0 auto; margin-top: auto;
-  display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 6px 6px;
+  flex: 1 1 auto;
+  display: flex; align-items: flex-end; justify-content: flex-end; padding: 2px 6px 8px;
 }
 .aud__id {
   justify-content: center; align-items: flex-end; text-align: right;
@@ -603,7 +603,7 @@
 @media (max-height: 730px) {
   .aud { gap: 4px; padding-bottom: 8px; }
   .aud__scroll { gap: 4px; }
-  .aud__hero { padding-bottom: 4px; }
+  .aud__hero { padding-bottom: 4px; padding-top: 0; }
   .aud__id { gap: 2px; }
   .aud__id .tag { padding-top: 2px; padding-bottom: 2px; }
   .aud__panel { padding: 9px 12px 10px; }
