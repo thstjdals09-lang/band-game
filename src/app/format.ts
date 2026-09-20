@@ -4,12 +4,16 @@ export function won(n: number): string {
   return `₩${Math.round(n).toLocaleString('ko-KR')}`;
 }
 
-/** Compact currency for the thin HUD (₩3.0M / ₩420K). */
+/**
+ * 얇은 HUD용 자금 표기 (300만 / 58만 / 8,000).
+ * 옆에 '자금' 라벨이 붙어 있어 통화 기호 없이도 뜻이 통하고,
+ * ₩ 글리프가 작은 고정폭 글꼴에서 숫자와 뭉개지던 문제도 사라진다.
+ * 상세 화면의 정확한 금액은 won()을 그대로 쓴다.
+ */
 export function wonShort(n: number): string {
   const v = Math.round(n);
-  if (Math.abs(v) >= 1_000_000) return `₩${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (Math.abs(v) >= 10_000) return `₩${Math.round(v / 1000)}K`;
-  return `₩${v.toLocaleString('ko-KR')}`;
+  if (Math.abs(v) >= 10_000) return `${Math.round(v / 10_000).toLocaleString('ko-KR')}만`;
+  return v.toLocaleString('ko-KR');
 }
 
 export function weekLabel(save: SaveData): string {

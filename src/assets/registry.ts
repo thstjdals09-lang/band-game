@@ -154,6 +154,16 @@ export function characterPoseAssets(id: string): { key: AssetKey; url: string; c
   return out;
 }
 
+/**
+ * 오디션에서 선택한 후보 뒤에 까는 장면 일러스트.
+ * `src/assets/scenes/<ID>_SCENE.jpg` 를 넣으면 그 인물에게 바로 붙는다. 없으면 기존 배경이 남는다.
+ */
+const sceneArt = import.meta.glob('./scenes/*.{jpg,png}', { eager: true, import: 'default' }) as Record<string, string>;
+for (const [path, url] of Object.entries(sceneArt)) {
+  const match = /\/(C\d{2})_SCENE\.(?:jpg|png)$/.exec(path);
+  if (match) assetRegistry[`CHARACTER_${match[1]}_SCENE`] = url;
+}
+
 export const POSE_SLOTS = ['1', '2', '3', '4'] as const;
 
 export function characterPoseSlots(id: string): { name: string; label: string; ready: boolean }[] {

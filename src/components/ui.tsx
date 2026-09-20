@@ -30,8 +30,18 @@ export function StatBar({ label, value, tone, compact }: { label: string; value:
 }
 
 // ---------------- Tag
-export function Tag({ children, tone }: { children: ReactNode; tone?: 'role' | 'accent' | 'amber' | 'ok' | 'mute' }) {
+export type TagTone = 'role' | 'accent' | 'amber' | 'ok' | 'mute'
+  | 'vocal' | 'guitar' | 'bass' | 'drums' | 'keys';
+
+export function Tag({ children, tone }: { children: ReactNode; tone?: TagTone }) {
   return <span className={`tag ${tone ? `tag--${tone}` : ''}`}>{children}</span>;
+}
+
+/** 포지션마다 다른 색. 특성 태그가 쓰는 노란 계열은 피한다. */
+export function positionTone(position: string): TagTone {
+  const key = position.toLowerCase();
+  if (key === 'vocal' || key === 'guitar' || key === 'bass' || key === 'drums' || key === 'keys') return key;
+  return 'role';
 }
 
 // ---------------- Grade

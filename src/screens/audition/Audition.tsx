@@ -1,26 +1,27 @@
-// AUDITION (IA §12): Candidate Roster + 선택한 후보의 큰 비주얼 + Quick Info.
-// Actions: SHORTLIST / DETAIL / COMPARE. No contract button here.
+// AUDITION (IA §12, Visual Bible §08 — AUDITION은 World 60 / Decision UI 40)
 //
-// 후보를 "고르는" 화면이다. 다섯 명이 한눈에 구분되도록 로스터 카드마다 그 사람의 가장 높은 스탯을 붙이고,
-// 선택한 후보의 스탯은 다른 후보와 견줘서 보여준다 (세로선 = 후보 평균, 1위 = 후보 중 최고).
-// 표시하는 것은 전부 이미 공개된 정보다.
+// 레이어 구조가 이 화면의 핵심이다.
+//   배경 장면  →  그 위에 떠 있는 카드 한 장  →  카드 안의 하위 패널 둘(후보 스트립 / 수치)
+// 인물 영역은 박스를 두르지 않는다. 카드 위에 바로 올라가 화면의 중심이 된다.
+// 박스를 여러 장 쌓으면 장면이 사라지고 관리 앱처럼 보인다.
+//
+// 읽는 순서: 후보를 훑고 → 한 명을 고르면 → 그 사람이 가운데를 차지하고 → 강점·수치 → 결정.
+// 긴 설명과 조사 행동은 '상세 보기'가 맡는다. 표시하는 것은 전부 이미 공개된 정보다.
 import { useSearchParams } from 'react-router-dom';
-import { CHARACTERS, CONTRACT_PROFILES, traitName, type CharacterId } from '@/data/master';
+import { CHARACTERS, characterQuote, traitName, type CharacterId } from '@/data/master';
 import { useSave } from '@/state/store';
-import { auditionActions } from '@/state/actions';
-import { candidateFieldView, candidateFit } from '@/state/selectors';
+import { candidateFieldView } from '@/state/selectors';
 import { useGameNav } from '@/app/navigation';
+import { resolveAsset } from '@/assets/registry';
 import { Panel } from '@/components/Panel';
-import { PlaceholderAsset } from '@/components/PlaceholderAsset';
-import { CharacterVisual } from '@/components/CharacterVisual';
-import { Btn, EmptyState, Tag } from '@/components/ui';
-import { FieldStats, RosterStrip, StandoutChips } from './parts';
+import { Btn, EmptyState, Tag, positionTone } from '@/components/ui';
+import { FieldStats, RosterStrip } from './parts';
 
 export function AuditionScreen() {
   const save = useSave();
   const audition = Object.values(save.auditions).find((a) => a.status === 'OPEN') ?? null;
   const [params, setParams] = useSearchParams();
-  const { go } = useGameNav();
+  const { go, closeToHome } = useGameNav();
 
   if (!audition || audition.candidateIds.length === 0) {
     return (
@@ -34,85 +35,85 @@ export function AuditionScreen() {
   const selectedId = param && audition.candidateIds.includes(param) ? param : audition.candidateIds[0];
   const c = CHARACTERS[selectedId];
   const revealed = audition.revealedInformation[selectedId] ?? [];
-  const shortlisted = audition.shortlistIds.includes(selectedId);
-  const profile = CONTRACT_PROFILES[c.contractProfileId];
   const select = (id: CharacterId) => setParams({ c: id }, { replace: true });
 
+  const quote = characterQuote(selectedId);
   const view = candidateFieldView(save, audition.auditionId, selectedId);
-  const fit = candidateFit(save, selectedId);
-  const hasBand = save.band.activeMembers.length > 0;
-  const shortCount = audition.shortlistIds.length;
 
-  const compare = () => {
-    auditionActions.setCompare(audition.auditionId, audition.shortlistIds.slice(0, 3));
-    go('/audition/compare');
-  };
+  // 다른 후보와 견줘 돋보이는 점 둘. 자세한 비교는 '비교하기'와 '상세 보기'가 맡는다.
+  const badges = view.standouts.slice(0, 2);
+
+  // 이 후보의 장면 일러스트가 있으면 카드 뒤에 깐다. 없으면 기존 배경이 그대로 보인다.
+  const sceneUrl = resolveAsset(`CHARACTER_${selectedId}_SCENE`);
 
   return (
-    <Panel title="오디션" subtitle={`후보 ${audition.candidateIds.length}명`} nav="close" flush>
-      {/* Roster: 후보 전원이 한 줄에 보인다 (한 명씩 넘기는 구조가 아니다) */}
-      <RosterStrip save={save} audition={audition} selectedId={selectedId} onSelect={select} />
+    <Panel
+      title="오디션"
+      subtitle={`후보 ${audition.candidateIds.length}명`}
+      nav="close"
+      flush
+      scene
+      hideHeader
+      background={sceneUrl ? (
+        <div className="aud__scene" aria-hidden><img src={sceneUrl} alt="" /></div>
+      ) : undefined}
+    >
+      <div className="aud">
+          {/* 제목 · 닫기 · 후보 스트립이 하나의 그룹이다 */}
+          <div className="aud__group">
+            <div className="aud__head">
+              <button className="panel__nav" onClick={closeToHome} aria-label="close">×</button>
+              <div className="grow">
+                <div className="panel__title">오디션</div>
+                <div className="panel__sub">후보 {audition.candidateIds.length}명</div>
+              </div>
+            </div>
+            <RosterStrip save={save} audition={audition} selectedId={selectedId} onSelect={select} />
+          </div>
 
-      {/* 선택한 후보: 큰 비주얼 + 누구인지 */}
-      <div className="ahero">
-        <PlaceholderAsset assetKey="AUDITION_ROOM_BG" variant="fill" kind="scene" />
-        <div className="ahero__visual"><CharacterVisual id={selectedId} variant="FULL" /></div>
-        <div className="ahero__id">
-          <div className="ahero__name">{c.name}</div>
-          <div className="tags">
-            {c.positions.map((p) => <Tag key={p} tone="role">{p.toUpperCase()}</Tag>)}
+          {/* 화면의 중심. 박스를 두르지 않는다.
+              인물은 배경 일러스트가 보여주므로 전신 픽셀 스프라이트는 여기에 두지 않는다.
+              픽셀 초상은 위 후보 스트립에만 남는다. */}
+          <div className="aud__hero">
+            <div className="aud__id">
+              <h2 className="aud__name">{c.name}</h2>
+              <div className="tags">
+                {c.positions.map((p) => <Tag key={p} tone={positionTone(p)}>{p.toUpperCase()}</Tag>)}
+              </div>
+              {revealed.includes('MUSIC_TAGS') && (
+                <div className="tags">{c.musicTags.map((t) => <Tag key={t}>{t}</Tag>)}</div>
+              )}
+              <div className="tags">
+                {revealed.includes('TRAIT_1') && <Tag tone="amber">{traitName(c.visibleTraitIds[0])}</Tag>}
+                {revealed.includes('TRAIT_2') && c.visibleTraitIds[1] && <Tag tone="amber">{traitName(c.visibleTraitIds[1])}</Tag>}
+                {!revealed.includes('TRAIT_2') && <Tag tone="mute">아직 모르는 면이 있다</Tag>}
+              </div>
+              {/* 수치가 아니라 사람이 먼저 읽히게, 이 자리는 한마디가 맡는다.
+                  계약 부담은 상세 보기와 계약 협상에서 그대로 확인할 수 있다. */}
+              {quote && <p className="aud__quote">“ {quote} ”</p>}
+            </div>
           </div>
-          {revealed.includes('MUSIC_TAGS') && (
-            <div className="tags">{c.musicTags.map((t) => <Tag key={t}>{t}</Tag>)}</div>
-          )}
-          <div className="tags">
-            {revealed.includes('TRAIT_1') && <Tag tone="amber">{traitName(c.visibleTraitIds[0])}</Tag>}
-            {revealed.includes('TRAIT_2') && c.visibleTraitIds[1] && <Tag tone="amber">{traitName(c.visibleTraitIds[1])}</Tag>}
-            {!revealed.includes('TRAIT_2') && <Tag tone="mute">아직 모르는 면이 있다</Tag>}
-          </div>
-          <div className="ahero__burden">
-            <span className="label dim">계약 부담</span>
-            <span className="mono lead strong">{revealed.includes('CONTRACT_BURDEN') ? profile?.burden : '?'}</span>
-          </div>
-        </div>
-      </div>
 
-      <div className="abody">
-        {/* 다른 후보와 견줘 돋보이는 점 + 지금 밴드에서 설 자리 */}
-        <StandoutChips view={view} />
-        <ul className="afit">
-          <li className={fit.fillsSlotLabel ? 'afit__ok' : ''}>
-            {fit.fillsSlotLabel
-              ? `비어 있는 ${fit.fillsSlotLabel} 자리에 바로 설 수 있다`
-              : '지금 비어 있는 자리 중에는 맞는 포지션이 없다'}
-          </li>
-          {hasBand && revealed.includes('MUSIC_TAGS') && (
-            <li className={fit.sharedTags.length > 0 ? 'afit__ok' : ''}>
-              {fit.sharedTags.length > 0
-                ? `지금 밴드와 겹치는 장르 · ${fit.sharedTags.join(', ')}`
-                : '지금 밴드와 겹치는 장르가 없다'}
-            </li>
-          )}
-        </ul>
+          {/* 하나의 투명 상자 — 강점 · 수치 · 결정을 묶는다 */}
+          <div className="aud__panel">
+            <div className="aud__badges">
+              <span className="aud__among">후보 {view.fieldSize}명 중</span>
+              {badges.map((t) => <span key={t} className="badge">{t}</span>)}
+            </div>
+            {revealed.includes('BASE_STATS') && <FieldStats view={view} compact legend={false} />}
+            <div className="aud__foot">
+              <span className="fstats__legend"><span className="fstats__tick" /> 이번 오디션 후보 평균</span>
+            </div>
 
-        {revealed.includes('BASE_STATS') && <FieldStats view={view} />}
-
-        <div className="col mt16" style={{ gap: 8 }}>
-          <div className="row" style={{ gap: 8 }}>
-            <Btn variant={shortlisted ? 'primary' : 'secondary'} full onClick={() => auditionActions.toggleShortlist(audition.auditionId, selectedId)}>
-              {shortlisted ? '★ 쇼트리스트' : '쇼트리스트'}
-            </Btn>
-            <Btn variant="secondary" full onClick={() => go(`/audition/candidate/${selectedId}`)}>상세 보기</Btn>
+            {/* 결정 — 주 버튼 하나 + 보조 둘 */}
+            {/* 쇼트리스트와 비교 기능은 그대로 두고 이 화면에서만 감춘다. */}
+            <div className="aud__actions">
+              <div className="row" style={{ gap: 8 }}>
+                <Btn variant="secondary" full onClick={() => go(`/audition/candidate/${selectedId}`)}>상세 보기</Btn>
+                <Btn variant="primary" full onClick={() => go(`/audition/contract/${selectedId}`)}>계약 협상</Btn>
+              </div>
+            </div>
           </div>
-          <Btn variant="ghost" full disabled={shortCount < 2} onClick={compare}>
-            {shortCount < 2 ? '비교하려면 2명 이상 쇼트리스트' : `비교하기 (${Math.min(3, shortCount)}명)`}
-          </Btn>
-          <div className="ahint">
-            {shortCount === 0 && '마음에 드는 후보를 쇼트리스트에 담아 두면 나란히 놓고 비교할 수 있다.'}
-            {shortCount === 1 && '한 명 더 담으면 두 사람을 나란히 비교할 수 있다.'}
-            {shortCount >= 2 && `★ 표시가 붙은 ${shortCount}명을 담아 두었다.`}
-          </div>
-        </div>
       </div>
     </Panel>
   );

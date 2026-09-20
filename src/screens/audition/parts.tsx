@@ -62,10 +62,10 @@ export function StandoutChips({ view }: { view: CandidateFieldView }) {
 }
 
 /** 핵심 5스탯. 세로선은 이번 오디션 후보 평균이고, 후보 중 가장 높은 항목은 강조된다. */
-export function FieldStats({ view, legend = true }: { view: CandidateFieldView; legend?: boolean }) {
+export function FieldStats({ view, legend = true, compact }: { view: CandidateFieldView; legend?: boolean; compact?: boolean }) {
   if (!view.stats) return null;
   return (
-    <div className="fstats">
+    <div className={`fstats ${compact ? 'fstats--compact' : ''}`}>
       {view.stats.map((s) => (
         <div key={s.key} className={`fstat ${s.lead ? 'fstat--lead' : ''}`}>
           <span className="fstat__label">{s.label}</span>

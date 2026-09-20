@@ -2,6 +2,7 @@
 export * from './types';
 export { CHARACTERS, CHARACTER_IDS, FIRST_AUDITION_CANDIDATES } from './characters';
 export { TRAITS, traitName } from './traits';
+export { CHARACTER_QUOTES, characterQuote } from './quotes';
 export { CONTRACT_PROFILES, CLAUSE_LABELS } from './contractProfiles';
 export { CONTRACT_V1_PROVISIONAL, CONTRACT_DURATION_OPTIONS } from './contractV1';
 export { SYNERGIES } from './synergies';
