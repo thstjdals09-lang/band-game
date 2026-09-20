@@ -71,7 +71,11 @@ export function FieldStats({ view, legend = true, compact }: { view: CandidateFi
         <div key={s.key} className={`fstat ${s.lead ? 'fstat--lead' : ''}`}>
           <span className="fstat__label">{s.label}</span>
           <div className="fstat__track">
-            <div className="fstat__fill" style={{ width: `${Math.max(0, Math.min(100, s.value))}%` }} />
+            {/* --v 는 막대의 값. 글로우 세기를 값에 비례시키려고 CSS 로 넘긴다. */}
+            <div
+              className="fstat__fill"
+              style={{ width: `${Math.max(0, Math.min(100, s.value))}%`, ['--v' as string]: Math.max(0, Math.min(100, s.value)) }}
+            />
             {view.fieldSize > 1 && (
               <span className="fstat__avg" style={{ left: `${Math.max(0, Math.min(100, s.fieldAverage))}%` }} />
             )}

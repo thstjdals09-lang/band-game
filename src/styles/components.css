@@ -364,14 +364,21 @@
   border: 1px solid rgba(240, 235, 224, 0.10);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
-/* 고른 사람만 확실히 도드라진다. 나머지는 조용한 선택 카드로 남는다. */
+/* 고른 사람만 확실히 도드라진다. 밝은 테두리 · 약한 바깥 글로우 · 안쪽 그라데이션.
+   나머지는 대비를 낮춰 뒤로 물러난다. */
 .roster__card--selected {
-  border-color: var(--c-accent); background: var(--c-accent-soft);
-  box-shadow: 0 0 0 1px var(--c-accent), 0 6px 18px rgba(255, 92, 122, 0.3);
+  border-color: rgba(255, 168, 186, 0.9);
+  background: linear-gradient(180deg, rgba(255, 92, 122, 0.26) 0%, rgba(255, 92, 122, 0.10) 55%, rgba(20, 14, 20, 0.5) 100%);
+  box-shadow:
+    0 0 0 1px var(--c-accent),
+    0 0 16px rgba(255, 92, 122, 0.35),
+    0 6px 18px rgba(255, 92, 122, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
-.roster__card:not(.roster__card--selected) .ph--thumb { opacity: 0.72; }
-.roster__card:not(.roster__card--selected) .roster__name { color: var(--c-text-dim); }
-.roster__card:not(.roster__card--selected) .roster__pos { opacity: 0.8; }
+.roster__card:not(.roster__card--selected) { background: rgba(24, 29, 41, 0.6); border-color: rgba(240, 235, 224, 0.07); }
+.roster__card:not(.roster__card--selected) .ph--thumb { opacity: 0.6; }
+.roster__card:not(.roster__card--selected) .roster__name { color: var(--c-text-faint); }
+.roster__card:not(.roster__card--selected) .roster__pos { opacity: 0.6; }
 .roster__card .ph--thumb { width: 100%; height: auto; aspect-ratio: 6 / 5; border-radius: 7px; }
 .roster__name { font-size: var(--fs-meta); font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .roster__pos { font-size: 10px; letter-spacing: 0.03em; color: var(--c-text-dim); font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -576,7 +583,12 @@
 /* 강점 · 수치 · 결정을 묶는 큰 투명 상자 */
 .aud__panel {
   flex: 0 0 auto; padding: 13px 14px 15px; border-radius: 14px;
-  background: rgba(10, 13, 20, 0.62); border: 1px solid var(--c-border);
+  background: rgba(10, 13, 20, 0.62);
+  border: 1px solid rgba(240, 235, 224, 0.12);
+  /* 일러스트가 은은하게 비치되 수치는 또렷하게. 흐림은 약하게만 건다. */
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 22px rgba(0, 0, 0, 0.35);
 }
 .aud__badges, .badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 /* 태그와 같은 글자 크기·테두리 모양이어야 한 화면에서 같은 종류로 읽힌다. */
@@ -599,6 +611,25 @@
 
 /* 결정 — 주 버튼 하나 + 보조 둘 */
 .aud__actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+/* 계약 협상이 이 화면의 유일한 강조다. 상세 보기는 조용한 면으로 한 단 내려둔다. */
+.aud__actions .btn--primary {
+  background: linear-gradient(180deg, #ff7d9c 0%, var(--c-accent) 52%, #ef4767 100%);
+  border-color: rgba(255, 168, 186, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    0 0 10px rgba(255, 92, 122, 0.16),
+    0 4px 12px rgba(255, 92, 122, 0.12);
+}
+.aud__actions .btn--primary:active {
+  background: linear-gradient(180deg, var(--c-accent) 0%, #e8425f 100%);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.aud__actions .btn--secondary {
+  background: rgba(10, 13, 20, 0.58);
+  border-color: rgba(240, 235, 224, 0.16);
+  color: var(--c-text);
+}
+.aud__actions .btn--secondary:active { background: rgba(10, 13, 20, 0.78); border-color: var(--c-text-dim); }
 
 .fstats { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .fstats--compact { gap: 7px; margin-top: 10px; }
@@ -608,9 +639,29 @@
 .fstats--compact .fstats__legend { margin-top: 2px; }
 .fstat { display: grid; grid-template-columns: 54px 1fr 26px 26px; align-items: center; gap: 8px; font-size: var(--fs-meta); }
 .fstat__label { color: var(--c-text-dim); }
-.fstat__track { position: relative; height: 8px; background: var(--c-concrete); border-radius: 4px; }
-.fstat__fill { height: 100%; background: var(--c-text-dim); border-radius: 4px; }
-.fstat--lead .fstat__fill { background: var(--c-accent); }
+.fstat__track {
+  position: relative; height: 8px; border-radius: 4px;
+  background: var(--c-concrete);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+/* 채워진 구간은 왼쪽에서 오른쪽으로 밝아진다. 끝이 밝아 막대가 어디서 멈췄는지 눈에 먼저 든다.
+   글로우는 값(--v)에 비례한다 — 높은 능력치일수록 은은하게 더 퍼진다. 문턱값은 두지 않는다. */
+.fstat__fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg,
+    rgba(240, 235, 224, 0.34) 0%,
+    rgba(240, 235, 224, 0.62) 60%,
+    rgba(240, 235, 224, 0.82) 100%);
+  box-shadow:
+    0 0 calc(7px * var(--v, 0) / 100) rgba(240, 235, 224, calc(0.30 * var(--v, 0) / 100)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.fstat--lead .fstat__fill {
+  background: linear-gradient(90deg, #d93a58 0%, var(--c-accent) 55%, #ff9cb2 100%);
+  box-shadow:
+    0 0 calc(11px * var(--v, 0) / 100) rgba(255, 92, 122, calc(0.6 * var(--v, 0) / 100)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
 .fstat--lead .fstat__label { color: var(--c-text); font-weight: 700; }
 /* 세로선 = 이번 오디션 후보 평균 */
 .fstat__avg { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--c-text); border-radius: 1px; opacity: 0.85; }
