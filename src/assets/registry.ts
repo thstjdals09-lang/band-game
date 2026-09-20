@@ -51,7 +51,7 @@ const characterArt = import.meta.glob('./characters/*.png', { eager: true, impor
 for (const [path, url] of Object.entries(characterArt)) {
   // C01_FULL.png -> CHARACTER_C01_FULL
   // C01_POSE_1_FULL.png -> CHARACTER_C01_POSE_1_FULL  (자세 그림)
-  const match = /\/(C\d{2})_((?:POSE_[A-Za-z0-9]+_)?(?:FULL|BUST|THUMB))\.png$/.exec(path);
+  const match = /\/(C\d{2})_((?:POSE_[A-Za-z0-9]+_)?(?:FULL|SIT|BUST|THUMB))\.png$/.exec(path);
   if (match) assetRegistry[`CHARACTER_${match[1]}_${match[2]}`] = url;
 }
 
@@ -104,8 +104,8 @@ export function characterAssetKey(id: string, variant: 'FULL' | 'BUST' | 'THUMB'
  */
 export function characterPoseAssetKey(id: string, pose?: string): AssetKey {
   if (pose) {
-    const key = `CHARACTER_${id}_POSE_${pose}_FULL`;
-    if (assetRegistry[key]) return key;
+    const key = characterPoseKey(id, pose);
+    if (key) return key;
   }
   return `CHARACTER_${id}_FULL`;
 }
@@ -113,10 +113,21 @@ export function characterPoseAssetKey(id: string, pose?: string): AssetKey {
 /** 이 인물에게 실제로 그림이 있는 자세 이름들. 그림이 없으면 빈 배열이다. */
 export function characterPoses(id: string): string[] {
   const prefix = `CHARACTER_${id}_POSE_`;
-  return Object.keys(assetRegistry)
-    .filter((k) => k.startsWith(prefix) && k.endsWith('_FULL') && assetRegistry[k])
-    .map((k) => k.slice(prefix.length, -'_FULL'.length))
-    .sort();
+  const found = new Set<string>();
+  for (const k of Object.keys(assetRegistry)) {
+    if (!k.startsWith(prefix) || !assetRegistry[k]) continue;
+    // CHARACTER_C01_POSE_4_SIT -> '4' (끝 토큰은 자세 등급이라 버튼 이름이 아니다)
+    const rest = k.slice(prefix.length);
+    const cut = rest.lastIndexOf('_');
+    if (cut > 0) found.add(rest.slice(0, cut));
+  }
+  return [...found].sort();
+}
+
+/** 이 인물의 이 자세 그림 키. 등급(FULL/SIT…)은 파일이 정하므로 둘 다 찾아본다. */
+export function characterPoseKey(id: string, pose: string): AssetKey | undefined {
+  const prefix = `CHARACTER_${id}_POSE_${pose}_`;
+  return Object.keys(assetRegistry).find((k) => k.startsWith(prefix) && assetRegistry[k]);
 }
 
 /**

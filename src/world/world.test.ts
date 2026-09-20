@@ -436,17 +436,17 @@ describe('play camera and drag panning', () => {
 describe('test sprite placement', () => {
   it('resolves the sprite from the node asset key, never from another character', () => {
     // 각 에셋은 자기 메트릭으로 선다.
-    for (const key of ['CHARACTER_C01_FULL', 'CHARACTER_C04_FULL', 'SESSION_01_FULL', 'CHARACTER_C01_POSE_1_FULL']) {
+    for (const key of ['CHARACTER_C01_FULL', 'CHARACTER_C04_FULL', 'SESSION_01_FULL']) {
       const placed = spriteFor(DEFAULT_TEST_SPRITE, key);
       expect(placed?.assetKey).toBe(key);
       expect(placed?.mode).toBe('exact');
       expect(placed?.sourceSize).toEqual(SPRITE_METRICS[key].sourceSize);
       expect(placed?.footAnchor).toEqual(SPRITE_METRICS[key].footAnchor);
     }
-    // 아직 크기를 재지 않은 그림(방금 넣은 자세 등)도 자기 키로 세워진다.
-    const fresh = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C02_POSE_9_FULL');
-    expect(fresh?.assetKey).toBe('CHARACTER_C02_POSE_9_FULL');
-    expect(fresh?.mode).toBe('fit');
+    // 표에 없는 그림(방금 넣은 자세 등)은 렌더러가 직접 재서 세운다.
+    const fresh = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C01_POSE_4_FULL');
+    expect(fresh?.assetKey).toBe('CHARACTER_C01_POSE_4_FULL');
+    expect(fresh?.mode).toBe('measure');
     // 남의 이미지를 빌려오는 경로는 없다.
     expect(spriteFor(DEFAULT_TEST_SPRITE, undefined)).toBeUndefined();
     expect(spriteFor({ ...DEFAULT_TEST_SPRITE, enabled: false }, 'CHARACTER_C01_FULL')).toBeUndefined();
@@ -463,6 +463,15 @@ describe('test sprite placement', () => {
   it('stands a character 3.6 elevation units tall by default', () => {
     expect(DEFAULT_TEST_SPRITE.heightUnits).toBe(3.6);
     expect(DEFAULT_TEST_SPRITE.heightUnits * proj.elevationHeight).toBeCloseTo(115.2);
+  });
+
+  it('reads the pose height class from the end of the file name', () => {
+    // 이름 끝이 등급이다. SIT 은 3.0u(95px), 그 밖은 서 있는 키 그대로.
+    const sit = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C01_POSE_4_SIT');
+    expect(sit!.heightUnits).toBeCloseTo(3.0);
+    expect(sit!.heightUnits * proj.elevationHeight).toBeCloseTo(96);
+    const full = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C01_POSE_4_FULL');
+    expect(full!.heightUnits).toBeCloseTo(3.6);
   });
 
   it('attaches the sprite to the character node without moving its spawn tile', () => {

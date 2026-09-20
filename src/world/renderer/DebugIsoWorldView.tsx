@@ -2,13 +2,14 @@
 // responsive camera - NOT to be the final look. It draws neutral blocks, never improvised art.
 // The final renderer (Phaser) will consume the same WorldScene and draw order.
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { placeholderLabel, resolveAsset } from '@/assets/registry';
 import { useDevDiagnostics } from '@/state/devStore';
 import { gridToScreen, pointsToSvg, tileDiamond, footprintDiamond, type ScreenPoint } from '../iso/projection';
 import { footprintTiles, frontTile } from '../iso/coordinates';
 import { tapRadiusFor } from '../iso/hitTest';
 import { NO_DEBUG, type RenderNode, type WorldViewProps } from './types';
+import { measuredMetricsFor, onSpriteMeasured } from '../assets/measureSprite';
 
 const MATERIAL_FILL: Record<string, string> = {
   CONCRETE: '#232833',
@@ -25,6 +26,9 @@ const OBJECT_FILL: Record<string, string> = {
 
 export function DebugIsoWorldView({ scene, debug = NO_DEBUG, onSelectObject, onSelectCharacter, onPickTile }: WorldViewProps) {
   const { camera, projection, nodes } = scene;
+  // 그림을 다 재면 한 번 더 그린다 (측정은 비동기라 첫 그림에는 아직 값이 없다).
+  const [, bumpMeasured] = useState(0);
+  useEffect(() => onSpriteMeasured(() => bumpMeasured((n) => n + 1)), []);
   const dev = useDevDiagnostics();
   const transform = `translate(${camera.offsetX} ${camera.offsetY}) scale(${camera.zoom})`;
 
@@ -205,31 +209,21 @@ function WorldNode({ node, scene, debug, dev, onSelect }: NodeProps) {
       {spriteUrl && node.sprite && (() => {
         const sprite = node.sprite;
         const drawH = sprite.heightUnits * projection.elevationHeight;
-        if (sprite.mode === 'fit' || !sprite.sourceSize || !sprite.footAnchor) {
-          // 크기를 모르는 그림: 높이에 맞춰 넣고 가로 가운데·바닥 기준으로 세운다.
-          const boxW = projection.tileWidth * 2;
-          return (
-            <image
-              className="isoworld__sprite"
-              href={spriteUrl}
-              x={centre.x - boxW / 2}
-              y={centre.y - drawH}
-              width={boxW}
-              height={drawH}
-              preserveAspectRatio="xMidYMax meet"
-            />
-          );
-        }
-        // Foot anchor lands exactly on the depth-anchor tile centre; scale comes from heightUnits.
-        const s = drawH / (sprite.heightBasis ?? sprite.sourceSize.h);
+        // 적어둔 값이 없으면 그림을 직접 잰 값을 쓴다. 다 재기 전에는 그리지 않는다.
+        const m = sprite.mode === 'measure'
+          ? measuredMetricsFor(spriteUrl)
+          : { sourceSize: sprite.sourceSize!, footAnchor: sprite.footAnchor!, heightBasis: sprite.heightBasis ?? sprite.sourceSize!.h };
+        if (!m) return null;
+        // 여백을 뺀 인물 높이가 자세 등급의 키에 대응한다.
+        const s = drawH / m.heightBasis;
         return (
           <image
             className="isoworld__sprite"
             href={spriteUrl}
-            x={centre.x - sprite.footAnchor.x * s}
-            y={centre.y - sprite.footAnchor.y * s}
-            width={sprite.sourceSize.w * s}
-            height={sprite.sourceSize.h * s}
+            x={centre.x - m.footAnchor.x * s}
+            y={centre.y - m.footAnchor.y * s}
+            width={m.sourceSize.w * s}
+            height={m.sourceSize.h * s}
             preserveAspectRatio="xMidYMax meet"
           />
         );

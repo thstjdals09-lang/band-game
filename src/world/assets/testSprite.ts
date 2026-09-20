@@ -12,6 +12,23 @@
 // NOT A FINAL SPEC. 값은 개발 파라미터이며 /dev/world (ISOMETRIC WORLD LAB)에서 실시간 조정한다.
 import { spriteMetricsFor } from './spriteMetrics';
 
+/**
+ * 파일 이름 끝의 자세 등급 -> 서 있는 키 대비 비율.
+ * `C01_POSE_4_SIT.png` 처럼 끝 토큰으로 정한다. 필요해지면 여기에 줄을 늘린다.
+ * 값은 이번에 들어온 앉은 자세를 실제로 재서 나온 비율(0.82)을 출발점으로 잡았다.
+ */
+export const POSE_HEIGHT_CLASS: Record<string, number> = {
+  FULL: 1,
+  // 기본 3.6u일 때 3.0u(≈95px). 비율로 둬서 랩에서 키를 바꾸면 같이 따라간다.
+  SIT: 3.0 / 3.6,
+};
+
+/** 에셋 키 끝에서 자세 등급을 읽는다. 모르면 서 있는 것으로 본다. */
+export function poseHeightScale(assetKey: string): number {
+  const cls = assetKey.slice(assetKey.lastIndexOf('_') + 1);
+  return POSE_HEIGHT_CLASS[cls] ?? 1;
+}
+
 export interface TestSpriteParams {
   /** Draw real art instead of the neutral debug block. */
   enabled: boolean;
@@ -45,10 +62,10 @@ export interface SpritePlacement {
   heightUnits: number;
   /**
    * 'exact' = 측정한 크기와 접지점으로 그린다 (SPRITE_METRICS에 있는 에셋).
-   * 'fit'   = 크기를 모르는 새 그림. 높이에 맞춰 넣고 가로 가운데·바닥 기준으로 세운다.
-   *           덕분에 자세 그림을 폴더에 넣기만 해도 바로 월드에 나온다.
+   * 'measure' = 적어둔 값이 없는 그림. 렌더러가 브라우저에서 직접 재서 세운다.
+   *             덕분에 여백이 어떻든 파일을 넣기만 하면 제자리에 선다.
    */
-  mode: 'exact' | 'fit';
+  mode: 'exact' | 'measure';
   sourceSize?: { w: number; h: number };
   footAnchor?: { x: number; y: number };
   /** heightUnits 높이에 대응하는 source 픽셀 수. 앉은 자세가 서 있는 자세보다 낮게 서는 근거. */
@@ -64,12 +81,14 @@ export interface SpritePlacement {
  */
 export function spriteFor(params: TestSpriteParams, assetKey?: string): SpritePlacement | undefined {
   if (!params.enabled || !assetKey) return undefined;
+  // 자세 등급이 키를 정한다. 앉은 자세는 서 있는 자세보다 낮게 선다.
+  const heightUnits = params.heightUnits * poseHeightScale(assetKey);
   const metrics = spriteMetricsFor(assetKey);
-  // 아직 재보지 않은 그림(새로 넣은 자세 등)도 세울 수 있어야 한다.
-  if (!metrics) return { assetKey, heightUnits: params.heightUnits, mode: 'fit' };
+  // 적어둔 값이 없으면 렌더러가 그림을 직접 재서 세운다.
+  if (!metrics) return { assetKey, heightUnits, mode: 'measure' };
   return {
     assetKey,
-    heightUnits: params.heightUnits,
+    heightUnits,
     mode: 'exact',
     sourceSize: metrics.sourceSize,
     heightBasis: metrics.heightBasis,
