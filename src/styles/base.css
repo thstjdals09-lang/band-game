@@ -31,6 +31,12 @@ ul { margin: 0; padding: 0; list-style: none; }
 .world-layer { position: absolute; inset: 0; }
 /* While a panel is open the world is scenery only - nothing inside it may take a tap. */
 .world-layer[aria-hidden='true'], .world-layer[aria-hidden='true'] * { pointer-events: none; }
+/* 패널이 열린 동안 월드는 배경이다. 초점을 흐려 뒤로 물리고, 월드가 달고 있는
+   글자(가구·인물 이름)는 감춘다 — 패널의 글자와 겹쳐 읽히면 둘 다 죽는다. */
+.world-layer[aria-hidden='true'] { filter: blur(3px) saturate(0.72) brightness(0.85); }
+.world-layer[aria-hidden='true'] .isoworld__label,
+.world-layer[aria-hidden='true'] .isoworld__state,
+.world-layer[aria-hidden='true'] .isoworld__badge { display: none; }
 .screen-layer { position: absolute; inset: 0; }
 .screen-layer--with-chrome { top: calc(var(--hud-h) + var(--safe-top)); bottom: calc(var(--dock-h) + var(--safe-bottom)); }
 .screen-layer--world { pointer-events: none; }

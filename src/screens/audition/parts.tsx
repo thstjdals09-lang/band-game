@@ -53,10 +53,10 @@ export function StandoutChips({ view }: { view: CandidateFieldView }) {
   // 1위가 하나도 없는 후보의 "평균 +n"은 1위만큼 크게 외치지 않는다.
   const soft = !view.stats?.some((s) => s.lead);
   return (
-    <div className="standout">
-      <span className="standout__label">후보 {view.fieldSize}명 중</span>
+    <div className="badges">
+      <span className="badges__among">후보 {view.fieldSize}명 중</span>
       {view.standouts.map((t) => (
-        <span key={t} className={`standout__chip ${soft ? 'standout__chip--soft' : ''}`}>{t}</span>
+        <span key={t} className={`badge ${soft ? 'badge--soft' : ''}`}>{t}</span>
       ))}
     </div>
   );

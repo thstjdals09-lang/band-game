@@ -40,8 +40,9 @@ export function LineupScreen() {
     <BandFrame>
       <div className="row row--between">
         <div>
-          <div className="label dim caps">현재 라인업</div>
-          <div className="panel__title mt8">CURRENT LINEUP {filled}/{lineupCapacity(save)}</div>
+          {/* 제목은 한글이 크게 앞에, 수치가 작게 뒤에 온다 (오디션 화면과 같은 규칙). */}
+          <div className="panel__title">현재 라인업</div>
+          <div className="panel__sub">자리 {filled}/{lineupCapacity(save)}</div>
         </div>
         {empty > 0 && <Tag tone="amber">빈 자리 {empty}</Tag>}
       </div>

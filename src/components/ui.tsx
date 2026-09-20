@@ -50,9 +50,11 @@ export function GradeLabel({ value }: { value: string }) {
 }
 
 // ---------------- Section
-export function Section({ title, aside, children, tight }: { title?: string; aside?: ReactNode; children: ReactNode; tight?: boolean }) {
+/** 배경 위에 떠 있는 아주 투명한 그룹 상자. 안의 카드가 그 위에 한 겹 더 올라간다.
+ *  bare = 그룹을 씌우지 않고 내용만 흐르게 둔다 (한 덩어리로 묶을 것이 없을 때). */
+export function Section({ title, aside, children, tight, bare }: { title?: string; aside?: ReactNode; children: ReactNode; tight?: boolean; bare?: boolean }) {
   return (
-    <section className={`section ${tight ? 'section--tight' : ''}`}>
+    <section className={`section ${tight ? 'section--tight' : ''} ${bare ? 'section--bare' : ''}`}>
       {title && <div className="section__title"><span>{title}</span>{aside}</div>}
       {children}
     </section>
