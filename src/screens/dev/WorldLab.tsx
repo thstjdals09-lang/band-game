@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { useSave } from '@/state/store';
 import { useDevStore, type WorldDebugToggles } from '@/state/devStore';
 import { DEFAULT_TEST_SPRITE, TEST_SPRITE_LIMITS } from '@/world/assets/testSprite';
+import { SPRITE_METRICS } from '@/world/assets/spriteMetrics';
 import { DEFAULT_CAMERA_CONFIG } from '@/world';
 import { BasecampWorld } from '@/world/BasecampWorld';
 import {
@@ -85,7 +86,7 @@ export function WorldLabScreen() {
           <dl className="kv mt12">
             <dt>play zoom</dt><dd>{zoom.toFixed(2)}{zoom === DEFAULT_CAMERA_CONFIG.defaultZoom ? '' : ' *'}</dd>
             <dt>sprite height</dt><dd>{sprite.heightUnits.toFixed(1)} u{sprite.heightUnits === DEFAULT_TEST_SPRITE.heightUnits ? '' : ' *'}</dd>
-            <dt>foot anchor</dt><dd>{sprite.footAnchor.x}, {sprite.footAnchor.y}{sprite.footAnchor.x === DEFAULT_TEST_SPRITE.footAnchor.x && sprite.footAnchor.y === DEFAULT_TEST_SPRITE.footAnchor.y ? '' : ' *'}</dd>
+            <dt>foot nudge</dt><dd>{sprite.footNudge.x}, {sprite.footNudge.y}{sprite.footNudge.x === DEFAULT_TEST_SPRITE.footNudge.x && sprite.footNudge.y === DEFAULT_TEST_SPRITE.footNudge.y ? '' : ' *'}</dd>
           </dl>
           <div className="row mt12">
             <Btn size="sm" variant="secondary" onClick={resetWorldTuning}>RESET ALL TUNING</Btn>
@@ -178,13 +179,13 @@ export function WorldLabScreen() {
       <Section title="Test sprite (visual fit)">
         <div className="rowcard rowcard--stack">
           <div className="row row--between">
-            <span className="rowcard__title">{sprite.assetKey}</span>
+            <span className="rowcard__title">월드 스프라이트</span>
             <Btn size="sm" variant={sprite.enabled ? 'primary' : 'secondary'} onClick={() => setSprite({ enabled: !sprite.enabled })}>
               {sprite.enabled ? 'ON' : 'OFF'}
             </Btn>
           </div>
           <div className="rowcard__meta mono mt8">
-            source {sprite.sourceSize.w}×{sprite.sourceSize.h}px · {sprite.characterId}
+            등록된 스프라이트 {Object.keys(SPRITE_METRICS).length}종 · 이미지는 노드의 assetKey로 정해진다
           </div>
 
           <div className="row row--between mt12">
@@ -197,20 +198,20 @@ export function WorldLabScreen() {
           </div>
 
           <div className="row row--between mt12">
-            <span className="rowcard__meta">foot anchor X</span>
+            <span className="rowcard__meta">foot nudge X</span>
             <span className="stepper">
-              <button onClick={() => setSprite({ footAnchor: { ...sprite.footAnchor, x: sprite.footAnchor.x - TEST_SPRITE_LIMITS.footAnchor.step } })}>−</button>
-              <span>{sprite.footAnchor.x}px</span>
-              <button onClick={() => setSprite({ footAnchor: { ...sprite.footAnchor, x: sprite.footAnchor.x + TEST_SPRITE_LIMITS.footAnchor.step } })}>+</button>
+              <button onClick={() => setSprite({ footNudge: { ...sprite.footNudge, x: sprite.footNudge.x - TEST_SPRITE_LIMITS.footNudge.step } })}>−</button>
+              <span>{sprite.footNudge.x}px</span>
+              <button onClick={() => setSprite({ footNudge: { ...sprite.footNudge, x: sprite.footNudge.x + TEST_SPRITE_LIMITS.footNudge.step } })}>+</button>
             </span>
           </div>
 
           <div className="row row--between mt12">
-            <span className="rowcard__meta">foot anchor Y</span>
+            <span className="rowcard__meta">foot nudge Y</span>
             <span className="stepper">
-              <button onClick={() => setSprite({ footAnchor: { ...sprite.footAnchor, y: sprite.footAnchor.y - TEST_SPRITE_LIMITS.footAnchor.step } })}>−</button>
-              <span>{sprite.footAnchor.y}px</span>
-              <button onClick={() => setSprite({ footAnchor: { ...sprite.footAnchor, y: sprite.footAnchor.y + TEST_SPRITE_LIMITS.footAnchor.step } })}>+</button>
+              <button onClick={() => setSprite({ footNudge: { ...sprite.footNudge, y: sprite.footNudge.y - TEST_SPRITE_LIMITS.footNudge.step } })}>−</button>
+              <span>{sprite.footNudge.y}px</span>
+              <button onClick={() => setSprite({ footNudge: { ...sprite.footNudge, y: sprite.footNudge.y + TEST_SPRITE_LIMITS.footNudge.step } })}>+</button>
             </span>
           </div>
 

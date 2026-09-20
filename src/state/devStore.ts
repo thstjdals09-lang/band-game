@@ -79,7 +79,21 @@ export const useDevStore = create<DevStore>()(
         world: { ...DEFAULT_WORLD_TOGGLES },
       }),
     }),
-    { name: 'band-game.dev', storage: createJSONStorage(() => localStorage) },
+    {
+      name: 'band-game.dev',
+      storage: createJSONStorage(() => localStorage),
+      /**
+       * 이 저장소는 개발용 튜닝 값만 담는다. 모양이 바뀌면 옛 값을 들고 가지 않는다.
+       * v1 이전에는 testSprite가 assetKey/sourceSize/footAnchor까지 들고 있어서,
+       * 브라우저에 남은 옛 키가 새 빌드의 월드를 깨뜨렸다 (인물이 안 보이거나 남의 얼굴로 보임).
+       */
+      version: 1,
+      migrate: (persisted, from) => {
+        const state = (persisted ?? {}) as Record<string, unknown>;
+        if (from < 1) delete state.testSprite;
+        return state;
+      },
+    },
   ),
 );
 

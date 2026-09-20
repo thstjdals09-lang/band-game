@@ -17,7 +17,7 @@ import { OBJECT_DEFINITIONS, depthAnchorFor, interactionTileFor } from './object
 import { occupancyPlacements, resolveCharacterPlacements, resolveObjectInstances } from './objects/instances';
 import { buildWorldScene, cameraBoundsOf, focusPointOf } from './renderer/buildScene';
 import { DEFAULT_TEST_SPRITE, spriteFor } from './assets/testSprite';
-import { CHARACTER_SPRITES } from './assets/characterSprites';
+import { SPRITE_METRICS } from './assets/spriteMetrics';
 import { createNewGame } from '@/state/save/newGame';
 import type { SaveData } from '@/state/save/schema';
 
@@ -410,16 +410,31 @@ describe('play camera and drag panning', () => {
 
 // 10 ----------------------------------------------------------------- test sprite (visual fit)
 describe('test sprite placement', () => {
-  it('binds the stand-in only to its own character by default', () => {
-    expect(spriteFor(DEFAULT_TEST_SPRITE, 'C01')).toBeDefined();
-    // 인물마다 자기 이미지를 쓴다. 다른 인물의 이미지를 빌려 오지 않는다.
-    const c04 = spriteFor(DEFAULT_TEST_SPRITE, 'C04', 'CHARACTER_C04_FULL');
-    expect(c04?.assetKey).toBe('CHARACTER_C04_FULL');
-    expect(c04?.sourceSize).toEqual(CHARACTER_SPRITES.C04.sourceSize);
-    expect(c04?.footAnchor).toEqual(CHARACTER_SPRITES.C04.footAnchor);
-    // 아직 자기 이미지가 없는 인물은 스프라이트를 받지 않는다.
-    expect(spriteFor(DEFAULT_TEST_SPRITE, 'C03', 'CHARACTER_C03_FULL')).toBeUndefined();
-    expect(spriteFor({ ...DEFAULT_TEST_SPRITE, enabled: false }, 'C01')).toBeUndefined();
+  it('resolves the sprite from the node asset key, never from another character', () => {
+    // 각 에셋은 자기 메트릭으로 선다.
+    for (const key of ['CHARACTER_C01_FULL', 'CHARACTER_C04_FULL', 'SESSION_01_FULL']) {
+      const placed = spriteFor(DEFAULT_TEST_SPRITE, key);
+      expect(placed?.assetKey).toBe(key);
+      expect(placed?.sourceSize).toEqual(SPRITE_METRICS[key].sourceSize);
+      expect(placed?.footAnchor).toEqual(SPRITE_METRICS[key].footAnchor);
+    }
+    // 등록된 이미지가 없으면 남의 이미지를 빌려오지 않고 스프라이트를 받지 않는다.
+    expect(spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C03_FULL')).toBeUndefined();
+    expect(spriteFor(DEFAULT_TEST_SPRITE, undefined)).toBeUndefined();
+    expect(spriteFor({ ...DEFAULT_TEST_SPRITE, enabled: false }, 'CHARACTER_C01_FULL')).toBeUndefined();
+  });
+
+  it('applies the lab foot nudge on top of the measured anchor', () => {
+    const nudged = spriteFor({ ...DEFAULT_TEST_SPRITE, footNudge: { x: 4, y: -6 } }, 'CHARACTER_C01_FULL');
+    expect(nudged?.footAnchor).toEqual({
+      x: SPRITE_METRICS.CHARACTER_C01_FULL.footAnchor.x + 4,
+      y: SPRITE_METRICS.CHARACTER_C01_FULL.footAnchor.y - 6,
+    });
+  });
+
+  it('stands a character 3.6 elevation units tall by default', () => {
+    expect(DEFAULT_TEST_SPRITE.heightUnits).toBe(3.6);
+    expect(DEFAULT_TEST_SPRITE.heightUnits * proj.elevationHeight).toBeCloseTo(115.2);
   });
 
   it('attaches the sprite to the character node without moving its spawn tile', () => {
@@ -435,13 +450,14 @@ describe('test sprite placement', () => {
   it('lands the foot anchor exactly on the spawn tile centre at any scale', () => {
     const tile = { x: 3, y: 4 };
     const centre = gridToScreen(tile, proj);
-    [1.2, 2.2, 3.5].forEach((heightUnits) => {
-      const s = (heightUnits * proj.elevationHeight) / DEFAULT_TEST_SPRITE.sourceSize.h;
-      const drawX = centre.x - DEFAULT_TEST_SPRITE.footAnchor.x * s;
-      const drawY = centre.y - DEFAULT_TEST_SPRITE.footAnchor.y * s;
-      expect(drawX + DEFAULT_TEST_SPRITE.footAnchor.x * s).toBeCloseTo(centre.x);
-      expect(drawY + DEFAULT_TEST_SPRITE.footAnchor.y * s).toBeCloseTo(centre.y);
-      expect(DEFAULT_TEST_SPRITE.sourceSize.h * s).toBeCloseTo(heightUnits * proj.elevationHeight);
+    const metrics = SPRITE_METRICS.CHARACTER_C01_FULL;
+    [1.2, 2.2, 3.6].forEach((heightUnits) => {
+      const s = (heightUnits * proj.elevationHeight) / metrics.sourceSize.h;
+      const drawX = centre.x - metrics.footAnchor.x * s;
+      const drawY = centre.y - metrics.footAnchor.y * s;
+      expect(drawX + metrics.footAnchor.x * s).toBeCloseTo(centre.x);
+      expect(drawY + metrics.footAnchor.y * s).toBeCloseTo(centre.y);
+      expect(metrics.sourceSize.h * s).toBeCloseTo(heightUnits * proj.elevationHeight);
     });
   });
 

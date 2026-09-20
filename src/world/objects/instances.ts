@@ -10,6 +10,7 @@ import { hitTilesFor } from '../iso/hitTest';
 import type { OccupantPlacement } from '../iso/occupancy';
 import { assetKeyForState, depthAnchorFor, interactionTileFor, OBJECT_DEFINITIONS, type ObjectDefId, type ObjectDefinition } from './definitions';
 import { spawnById, spawnForSlot, type BasecampMap, type SpawnPoint } from '../maps/types';
+import { sessionAssetKey } from '@/assets/registry';
 
 export type WorldMode = 'home' | 'build';
 
@@ -138,8 +139,9 @@ export function resolveCharacterPlacements(map: BasecampMap, save: SaveData): Wo
       });
     } else {
       out.push({
+        // 세션도 사람으로 보여야 한다. 같은 세션은 항상 같은 얼굴이다(저장하지 않는다).
         id: a.instanceId, kind: 'session', label: '세션',
-        pos: spawn.pos, spawnId: spawn.id, pose: 'play', assetKey: 'SESSION_MUSICIAN_FULL',
+        pos: spawn.pos, spawnId: spawn.id, pose: 'play', assetKey: sessionAssetKey(a.instanceId, 'FULL'),
       });
     }
   });

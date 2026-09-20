@@ -1,48 +1,42 @@
-// WORLD VISUAL FIT TEST — one real character image dropped into the logical world so we can judge
-// the room's viewpoint, proportions and camera.
+// WORLD SPRITE PLACEMENT — 월드에 인물을 세우는 규칙.
 //
-// NOT A FINAL SPEC. Every number here is a development parameter and is tuned live in
-// /dev/world (ISOMETRIC WORLD LAB). Nothing is locked until the art direction is approved.
+// 설계 원칙: **어떤 이미지인가는 노드가 정한다.**
+// 캐릭터/세션 노드는 이미 자기 `assetKey`를 들고 있고, 크기·접지점은 그 키로 `SPRITE_METRICS`에서 찾는다.
+// 아래 파라미터는 "얼마나 크게 세울지"만 정하며, 어떤 인물인지는 담지 않는다.
 //
-// Source: the approved C01 master turnaround (assets_source/), front-facing standing pose,
-// extracted as a connected component -> src/assets/characters/C01_FULL.png (145x311).
-
-import { characterSpriteMetrics } from './characterSprites';
+// 예전에는 이 파라미터가 characterId/assetKey/sourceSize/footAnchor까지 들고 있었고, 그 객체가
+// localStorage에 통째로 저장됐다. 그래서 (1) 파라미터 경로를 못 타는 세션은 블록으로 떨어지고,
+// (2) 브라우저에 남은 옛 assetKey 때문에 특정 인물이 화면에서 사라지고, (3) "모든 캐릭터에 적용"이
+// 켜져 있으면 전원이 같은 얼굴로 그려졌다. 정체성을 파라미터에서 들어내면 세 가지가 함께 사라진다.
+//
+// NOT A FINAL SPEC. 값은 개발 파라미터이며 /dev/world (ISOMETRIC WORLD LAB)에서 실시간 조정한다.
+import { spriteMetricsFor } from './spriteMetrics';
 
 export interface TestSpriteParams {
-  /** Draw the real image instead of the neutral debug block. */
+  /** Draw real art instead of the neutral debug block. */
   enabled: boolean;
-  /** Character this stand-in represents. */
-  characterId: string;
-  assetKey: string;
-  /** Native pixel size of the extracted sprite. */
-  sourceSize: { w: number; h: number };
   /**
-   * Pixel inside the sprite that sits on the spawn tile centre (the depth anchor).
-   * y = sourceSize.h means "the very bottom row of the image".
+   * Sprite height in elevation units - the scale control.
+   * 1 unit = PROTOTYPE_PROJECTION.elevationHeight (32 render px).
    */
-  footAnchor: { x: number; y: number };
-  /** Sprite height expressed in elevation units - this is the scale control. */
   heightUnits: number;
+  /**
+   * 접지 보정. 모든 스프라이트에 똑같이 더해지는 개발용 오프셋으로,
+   * 발이 타일 중심에 닿는지 확인할 때만 쓴다. 기본은 보정 없음.
+   */
+  footNudge: { x: number; y: number };
 }
-
-/** Measured from the approved C01_FULL derivative; still a development default, not a locked spec. */
-export const TEST_SPRITE_SOURCE = { w: 145, h: 311 } as const;
 
 export const DEFAULT_TEST_SPRITE: TestSpriteParams = {
   enabled: true,
-  characterId: 'C01',
-  assetKey: 'CHARACTER_C01_FULL',
-  sourceSize: { ...TEST_SPRITE_SOURCE },
-  // Horizontal centre of the shoe contact band (x 0..119 across the bottom 20 rows), bottom row.
-  footAnchor: { x: 59, y: 311 },
-  // 1 elevation unit = 32 render px at the prototype tile size, so 2.2 ≈ 70 px tall on a 128px tile.
-  heightUnits: 2.2,
+  // 3.6u × 32 = 115.2 render px. 타일 폭 128 위에 인물이 서 있는 크기.
+  heightUnits: 3.6,
+  footNudge: { x: 0, y: 0 },
 };
 
 export const TEST_SPRITE_LIMITS = {
-  heightUnits: { min: 0.8, max: 4, step: 0.1 },
-  footAnchor: { step: 2 },
+  heightUnits: { min: 0.8, max: 6, step: 0.1 },
+  footNudge: { step: 2 },
 } as const;
 
 /** Sprite placement resolved for the renderer. */
@@ -54,33 +48,22 @@ export interface SpritePlacement {
 }
 
 /**
- * 한 캐릭터를 타일 위에 세울 때 쓸 이미지와 접지 정보.
+ * 이 노드를 월드에 세울 때 쓸 이미지와 접지 정보.
  *
- * 인물마다 자기 이미지를 쓴다. 다른 인물의 이미지를 대신 넣지 않는다.
- * - 랩에서 조정 중인 인물(params.characterId)은 랩 값을 그대로 따른다.
- * - 나머지는 자기 스프라이트 지표를 쓰고, 크기 기준(heightUnits)만 랩 값을 공유한다.
- * - 아직 자기 이미지가 없는 인물은 스프라이트 없이 그려진다.
+ * 노드의 assetKey로만 찾는다. 등록된 메트릭이 없는 에셋은 스프라이트를 받지 않고
+ * 기존 디버그 표시로 그려진다 — 다른 인물의 이미지를 대신 쓰지 않는다.
  */
-export function spriteFor(
-  params: TestSpriteParams,
-  characterId?: string,
-  assetKey?: string,
-): SpritePlacement | undefined {
-  if (!params.enabled) return undefined;
-  if (characterId && characterId === params.characterId) {
-    return {
-      assetKey: params.assetKey,
-      sourceSize: params.sourceSize,
-      footAnchor: params.footAnchor,
-      heightUnits: params.heightUnits,
-    };
-  }
-  const metrics = characterSpriteMetrics(characterId);
-  if (!metrics || !assetKey) return undefined;
+export function spriteFor(params: TestSpriteParams, assetKey?: string): SpritePlacement | undefined {
+  if (!params.enabled || !assetKey) return undefined;
+  const metrics = spriteMetricsFor(assetKey);
+  if (!metrics) return undefined;
   return {
     assetKey,
     sourceSize: metrics.sourceSize,
-    footAnchor: metrics.footAnchor,
+    footAnchor: {
+      x: metrics.footAnchor.x + params.footNudge.x,
+      y: metrics.footAnchor.y + params.footNudge.y,
+    },
     heightUnits: params.heightUnits,
   };
 }
