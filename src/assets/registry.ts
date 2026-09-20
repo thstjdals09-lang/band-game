@@ -51,7 +51,7 @@ const characterArt = import.meta.glob('./characters/*.png', { eager: true, impor
 for (const [path, url] of Object.entries(characterArt)) {
   // C01_FULL.png -> CHARACTER_C01_FULL
   // C01_POSE_1_FULL.png -> CHARACTER_C01_POSE_1_FULL  (자세 그림)
-  const match = /\/(C\d{2})_((?:POSE_[A-Za-z0-9]+_)?(?:FULL|SIT|BUST|THUMB))\.png$/.exec(path);
+  const match = /\/(C\d{2})_((?:POSE_[A-Za-z0-9]+_)?(?:FULL|SIT|LAY|BUST|THUMB))\.png$/.exec(path);
   if (match) assetRegistry[`CHARACTER_${match[1]}_${match[2]}`] = url;
 }
 
@@ -124,10 +124,16 @@ export function characterPoses(id: string): string[] {
   return [...found].sort();
 }
 
-/** 이 인물의 이 자세 그림 키. 등급(FULL/SIT…)은 파일이 정하므로 둘 다 찾아본다. */
+/**
+ * 이 인물의 이 자세 그림 키. 등급(FULL/SIT/LAY…)은 파일이 정하므로 찾아서 쓴다.
+ * 같은 번호에 파일이 둘 이상이면 이름 순으로 첫 번째를 쓴다 (FULL < LAY < SIT).
+ * 어느 쪽을 쓸지 정하려면 남길 파일만 두면 된다.
+ */
 export function characterPoseKey(id: string, pose: string): AssetKey | undefined {
   const prefix = `CHARACTER_${id}_POSE_${pose}_`;
-  return Object.keys(assetRegistry).find((k) => k.startsWith(prefix) && assetRegistry[k]);
+  return Object.keys(assetRegistry)
+    .filter((k) => k.startsWith(prefix) && assetRegistry[k])
+    .sort()[0];
 }
 
 /**
