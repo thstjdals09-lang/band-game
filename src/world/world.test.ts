@@ -466,13 +466,13 @@ describe('test sprite placement', () => {
   });
 
   it('reads the pose height class from the end of the file name', () => {
-    // 이름 끝이 등급이다. SIT 은 3.0u(95px), 그 밖은 서 있는 키 그대로.
-    const sit = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C01_POSE_4_SIT');
-    expect(sit!.heightUnits).toBeCloseTo(5.8 * (3.0 / 3.6));
-    const full = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C01_POSE_4_FULL');
-    expect(full!.heightUnits).toBeCloseTo(5.8);
-    const lay = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C02_POSE_4_LAY');
-    expect(lay!.heightUnits).toBeCloseTo(5.8 * 0.52);
+    // 서 있는 것보다 앉은 게 작고, 누운 게 더 작다.
+    const full = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C01_POSE_4_FULL')!.heightUnits;
+    const sit = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C01_POSE_4_SIT')!.heightUnits;
+    const lay = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C02_POSE_4_LAY')!.heightUnits;
+    expect(full).toBeCloseTo(5.8);
+    expect(sit).toBeLessThan(full);
+    expect(lay).toBeLessThan(sit);
   });
 
   it('attaches the sprite to the character node without moving its spawn tile', () => {

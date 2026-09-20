@@ -51,7 +51,8 @@ const characterArt = import.meta.glob('./characters/*.png', { eager: true, impor
 for (const [path, url] of Object.entries(characterArt)) {
   // C01_FULL.png -> CHARACTER_C01_FULL
   // C01_POSE_1_FULL.png -> CHARACTER_C01_POSE_1_FULL  (자세 그림)
-  const match = /\/(C\d{2})_((?:POSE_[A-Za-z0-9]+_)?(?:FULL|SIT|LAY|BUST|THUMB))\.png$/.exec(path);
+  // 자세 파일은 이름 끝(_SIT, _LAY, _JUMP…)을 자유롭게 붙일 수 있다. 크기에는 관여하지 않는다.
+  const match = /\/(C\d{2})_(POSE_[A-Za-z0-9]+_[A-Z]+|FULL|BUST|THUMB)\.png$/.exec(path);
   if (match) assetRegistry[`CHARACTER_${match[1]}_${match[2]}`] = url;
 }
 
@@ -140,6 +141,19 @@ export function characterPoseKey(id: string, pose: string): AssetKey | undefined
  * 자세 자리. 지금은 그림이 없어 비어 있고, 파일을 넣으면 그 자리가 켜진다.
  * 파일 이름: `src/assets/characters/<ID>_POSE_<이름>_FULL.png` (예: C01_POSE_1_FULL.png)
  */
+/** 한 인물의 자세 그림 전부. 등급(FULL/SIT/LAY…)까지 같이 준다. */
+export function characterPoseAssets(id: string): { key: AssetKey; url: string; cls: string }[] {
+  const prefix = `CHARACTER_${id}_POSE_`;
+  const out: { key: AssetKey; url: string; cls: string }[] = [];
+  for (const key of Object.keys(assetRegistry)) {
+    if (!key.startsWith(prefix)) continue;
+    const url = assetRegistry[key];
+    if (!url) continue;
+    out.push({ key, url, cls: key.slice(key.lastIndexOf('_') + 1) });
+  }
+  return out;
+}
+
 export const POSE_SLOTS = ['1', '2', '3', '4'] as const;
 
 export function characterPoseSlots(id: string): { name: string; label: string; ready: boolean }[] {

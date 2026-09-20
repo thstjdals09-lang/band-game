@@ -12,23 +12,15 @@
 // NOT A FINAL SPEC. 값은 개발 파라미터이며 /dev/world (ISOMETRIC WORLD LAB)에서 실시간 조정한다.
 import { spriteMetricsFor } from './spriteMetrics';
 
-/**
- * 파일 이름 끝의 자세 등급 -> 서 있는 키 대비 비율.
- * `C01_POSE_4_SIT.png` 처럼 끝 토큰으로 정한다. 필요해지면 여기에 줄을 늘린다.
- * 값은 이번에 들어온 앉은 자세를 실제로 재서 나온 비율(0.82)을 출발점으로 잡았다.
- */
+/** 파일 이름 끝 토큰(`C01_POSE_4_SIT.png`)이 키를 정한다. 서 있는 것 = 1. */
 export const POSE_HEIGHT_CLASS: Record<string, number> = {
   FULL: 1,
-  // 서 있는 키의 0.83. 비율로 둬서 랩에서 키를 바꾸면 같이 따라간다.
-  SIT: 3.0 / 3.6,
-  // 누운 자세. 들어온 그림들이 서 있는 자세의 0.52 높이로 그려져 있어 그 값을 따른다 (≈1.9u / 60px).
-  LAY: 0.52,
+  SIT: 0.8,
+  LAY: 0.5,
 };
 
-/** 에셋 키 끝에서 자세 등급을 읽는다. 모르면 서 있는 것으로 본다. */
 export function poseHeightScale(assetKey: string): number {
-  const cls = assetKey.slice(assetKey.lastIndexOf('_') + 1);
-  return POSE_HEIGHT_CLASS[cls] ?? 1;
+  return POSE_HEIGHT_CLASS[assetKey.slice(assetKey.lastIndexOf('_') + 1)] ?? 1;
 }
 
 export interface TestSpriteParams {
@@ -83,7 +75,6 @@ export interface SpritePlacement {
  */
 export function spriteFor(params: TestSpriteParams, assetKey?: string): SpritePlacement | undefined {
   if (!params.enabled || !assetKey) return undefined;
-  // 자세 등급이 키를 정한다. 앉은 자세는 서 있는 자세보다 낮게 선다.
   const heightUnits = params.heightUnits * poseHeightScale(assetKey);
   const metrics = spriteMetricsFor(assetKey);
   // 적어둔 값이 없으면 렌더러가 그림을 직접 재서 세운다.

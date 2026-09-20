@@ -214,7 +214,6 @@ function WorldNode({ node, scene, debug, dev, onSelect }: NodeProps) {
           ? measuredMetricsFor(spriteUrl)
           : { sourceSize: sprite.sourceSize!, footAnchor: sprite.footAnchor!, heightBasis: sprite.heightBasis ?? sprite.sourceSize!.h };
         if (!m) return null;
-        // 여백을 뺀 인물 높이가 자세 등급의 키에 대응한다.
         const s = drawH / m.heightBasis;
         return (
           <image
