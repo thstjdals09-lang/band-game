@@ -121,7 +121,14 @@ export function PerformanceScreen() {
       <div className="imm__stage">
         <PlaceholderAsset assetKey={`PERFORMANCE_STAGE_${venue.id}`} variant="fill" kind="scene" />
         <div style={{ position: 'absolute', left: 0, right: 0, top: '34%', display: 'flex', justifyContent: 'center', gap: 8 }}>
-          {lineup.map((s) => <CharacterVisual key={s.index} id={s.characterId ?? 'SESSION'} variant="THUMB" />)}
+          {lineup.map((s) => (
+            <CharacterVisual
+              key={s.index}
+              id={s.characterId ?? 'SESSION'}
+              variant="THUMB"
+              seed={s.assignment?.kind === 'SESSION' ? s.assignment.instanceId : s.index}
+            />
+          ))}
         </div>
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '26%' }}>
           <PlaceholderAsset assetKey="PERFORMANCE_CROWD" variant="fill" kind="scene" />

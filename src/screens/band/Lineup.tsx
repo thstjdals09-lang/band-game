@@ -57,7 +57,9 @@ export function LineupScreen() {
             </span>
             {s.characterId
               ? <CharacterVisual id={s.characterId} variant="THUMB" />
-              : s.kind === 'SESSION' ? <CharacterVisual id="SESSION" /> : <span className="rowcard__chev">›</span>}
+              : s.kind === 'SESSION'
+                ? <CharacterVisual id="SESSION" seed={s.assignment?.kind === 'SESSION' ? s.assignment.instanceId : s.index} />
+                : <span className="rowcard__chev">›</span>}
           </button>
         ))}
       </div>
@@ -122,7 +124,7 @@ function SlotSheet({ view, onDone }: { view: LineupSlotView; onDone: () => void 
     return (
       <div className="col">
         <div className="rowcard">
-          <CharacterVisual id="SESSION" />
+          <CharacterVisual id="SESSION" seed={hire?.instanceId ?? index} />
           <div className="grow">
             <div className="rowcard__title">{view.displayName}</div>
             <div className="rowcard__meta">{hire ? `${won(hire.weeklyCost)} / 주 · ${hire.endWeek}주차까지` : ''}</div>
@@ -157,7 +159,7 @@ function SlotSheet({ view, onDone }: { view: LineupSlotView; onDone: () => void 
           {sessions.map((t) => (
             <div key={t.templateId} className="rowcard rowcard--stack">
               <div className="row">
-                <CharacterVisual id="SESSION" />
+                <CharacterVisual id="SESSION" seed={t.templateId} />
                 <div className="grow">
                   <div className="rowcard__title">{t.label}</div>
                   <div className="rowcard__meta">{slot} · {t.durationWeeks}주 계약</div>
