@@ -66,7 +66,7 @@
   --fs-label: 12px;
 
   --app-max-w: 430px;
-  --hud-h: 42px;
+  --hud-h: 30px;
   --dock-h: 66px;
   --tap: 48px;           /* minimum comfortable touch target */
   --safe-top: env(safe-area-inset-top, 0px);

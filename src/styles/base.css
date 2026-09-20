@@ -18,7 +18,9 @@ h1, h2, h3, h4, p { margin: 0; }
 ul { margin: 0; padding: 0; list-style: none; }
 
 /* App frame: portrait phone column. Desktop gets a centered column on a dark ground. */
-.app { position: fixed; inset: 0; display: flex; justify-content: center; }
+/* 사파리는 주소창이 떠 있는 동안 inset:0 이 보이는 높이보다 커서 아래가 잘린다.
+   dvh 를 아는 브라우저는 실제로 보이는 높이에 맞추고, 모르는 브라우저는 inset 으로 남는다. */
+.app { position: fixed; inset: 0; height: 100dvh; display: flex; justify-content: center; }
 .phone {
   position: relative; width: 100%; max-width: var(--app-max-w); height: 100%;
   overflow: hidden; background: var(--c-bg);

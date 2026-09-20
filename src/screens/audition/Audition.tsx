@@ -134,6 +134,8 @@ export function AuditionScreen() {
           )}
           </div>
 
+          {/* 고정된 상단 블록 아래에서 시작하는 영역. 여기만 스크롤된다. */}
+          <div className="aud__scroll">
           {/* 화면의 중심. 박스를 두르지 않는다.
               인물은 배경 일러스트가 보여주므로 전신 픽셀 스프라이트는 여기에 두지 않는다.
               픽셀 초상은 위 후보 스트립에만 남는다. */}
@@ -176,6 +178,7 @@ export function AuditionScreen() {
                 <Btn variant="primary" full onClick={() => go(`/audition/contract/${selectedId}`)}>계약 협상</Btn>
               </div>
             </div>
+          </div>
           </div>
       </div>
     </Panel>

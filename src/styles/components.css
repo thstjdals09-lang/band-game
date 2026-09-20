@@ -2,20 +2,20 @@
 .hud {
   position: absolute; left: 0; right: 0; top: 0; z-index: 30;
   height: calc(var(--hud-h) + var(--safe-top)); padding-top: var(--safe-top);
-  display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; white-space: nowrap;
+  display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; white-space: nowrap;
   padding-left: var(--gutter); padding-right: var(--gutter);
   /* 배경 장면 위에 떠 있는 바. 값이 또렷하도록 짙게 깔되 완전히 막지는 않는다 (§07). */
   background: rgba(9, 12, 18, 0.72);
   border-bottom: 1px solid var(--c-border);
   color: var(--c-text);
 }
-.hud__item { display: inline-flex; align-items: baseline; gap: 5px; white-space: nowrap; flex: none; }
+.hud__item { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; flex: none; }
 /* 한글 라벨이라 대문자 변환은 의미가 없다. 작게 두되 읽히는 밝기로. */
-.hud__label { color: var(--c-text-dim); font-size: 11px; letter-spacing: 0; }
+.hud__label { color: var(--c-text-dim); font-size: 10px; letter-spacing: 0; }
 /* 주마다 자릿수가 바뀌어도 숫자가 흔들리지 않게 고정폭으로 둔다. */
-.hud__value { font-family: var(--font-mono); font-size: var(--fs-body); font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
-.hud__week { font-family: var(--font-mono); font-size: var(--fs-body); font-weight: 700; color: var(--c-amber); white-space: nowrap; flex: none; font-variant-numeric: tabular-nums; }
-.hud__band { margin-left: auto; min-width: 0; color: var(--c-text-dim); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hud__value { font-family: var(--font-mono); font-size: 13px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.hud__week { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--c-amber); white-space: nowrap; flex: none; font-variant-numeric: tabular-nums; }
+.hud__band { margin-left: auto; min-width: 0; color: var(--c-text-dim); font-size: var(--fs-label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- Dock ---------- */
 .dock {
@@ -379,7 +379,7 @@
 .roster__card:not(.roster__card--selected) .ph--thumb { opacity: 0.6; }
 .roster__card:not(.roster__card--selected) .roster__name { color: var(--c-text-faint); }
 .roster__card:not(.roster__card--selected) .roster__pos { opacity: 0.6; }
-.roster__card .ph--thumb { width: 100%; height: auto; aspect-ratio: 6 / 5; border-radius: 7px; }
+.roster__card .ph--thumb { width: 100%; height: auto; aspect-ratio: 3 / 2; border-radius: 6px; }
 .roster__name { font-size: var(--fs-meta); font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .roster__pos { font-size: 10px; letter-spacing: 0.03em; color: var(--c-text-dim); font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 로스터의 포지션 글자도 히어로의 포지션 태그와 같은 색을 쓴다. */
@@ -492,21 +492,23 @@
   인물 영역에는 면을 깔지 않는다. 박스를 겹겹이 쌓으면 장면이 사라진다 (Visual Bible §07/§14).
 */
 /* 헤더를 화면이 직접 그리므로, 본문이 HUD 아래에서 시작하도록 띄운다. */
-.panel--scene .panel__body { padding-top: calc(8px + var(--hud-h) + var(--safe-top)); }
+.panel--scene .panel__body { padding-top: calc(4px + var(--hud-h) + var(--safe-top)); }
 /* 장면 화면은 HUD 뒤까지 덮는다. HUD는 z-index가 더 높아 그 위에 뜬다. */
 .panel--scene { background: transparent; top: calc(-1 * (var(--hud-h) + var(--safe-top))); }
 .panel--scene .panel__footer { position: relative; z-index: 1; }
 /* '오디션 · 후보 N명'과 후보 스트립은 하나의 아주 투명한 그룹으로 읽혀야 한다. */
 .panel--scene .panel__header {
   position: relative; z-index: 1;
-  margin: 0 12px; padding-top: calc(8px + var(--hud-h) + var(--safe-top)); padding-bottom: 8px;
+  margin: 0 12px; padding-top: calc(4px + var(--hud-h) + var(--safe-top)); padding-bottom: 6px;
   border-bottom: 0; border-radius: 16px 16px 0 0;
   background: rgba(12, 15, 23, 0.34);
 }
 /* 헤더와 로스터 사이에 틈이 생기지 않게 한다. */
 .panel--scene .panel__body--flush > .aud { padding-top: 0; }
 
-.aud { position: relative; z-index: 1; height: 100%; min-height: 0; padding: 0 12px 22px; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+/* 화면은 두 칸이다 — 위는 고정된 고르는 블록, 아래는 스크롤되는 인물 영역.
+   .aud 자체는 스크롤하지 않는다. */
+.aud { position: relative; z-index: 1; height: 100%; min-height: 0; padding: 0 12px 10px; overflow: hidden; }
 /* 선택한 후보의 장면. 패널 전체(HUD 뒤 포함)를 덮고, 위아래를 어둡게 해 글자를 방해하지 않는다. */
 .aud__scene { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
 .aud__scene img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
@@ -529,15 +531,22 @@
 }
 
 /* 화면 전체를 덮는 상자는 두지 않는다. 배경 장면이 그대로 보인다. */
-.aud { display: flex; flex-direction: column; gap: 8px; }
+.aud { display: flex; flex-direction: column; gap: 6px; }
+/* 인물 정보는 고정 블록의 아래 경계에서 시작해, 이 칸 안에서만 스크롤된다.
+   위 블록을 가리거나 그 뒤로 들어가지 않는다. */
+.aud__scroll {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;
+  display: flex; flex-direction: column; gap: 6px;
+}
 
 /* 하위 패널 1 — 고르는 곳 */
 /* 제목 · 닫기 · 후보 스트립을 담는 하나의 그룹 상자 */
 .aud__group {
-  flex: 0 0 auto; border-radius: 16px; padding: 5px;
+  flex: 0 0 auto; border-radius: 14px; padding: 4px;
   background: rgba(12, 15, 23, 0.34);
 }
-.aud__head { display: flex; align-items: center; gap: 4px; padding: 0 2px 4px; }
+.aud__head { display: flex; align-items: center; gap: 4px; padding: 0 2px 2px; }
 /* 좌우 버튼이 그룹 폭을 넘어 걸치도록, 그룹을 감싸는 자리 */
 .aud__rosternav { position: relative; flex: 0 0 auto; }
 /* 화살표만 보인다. 누를 수 있는 면적은 넉넉히 두되 면은 깔지 않는다. */
@@ -556,9 +565,15 @@
 /* 화면의 중심. 테두리도 배경도 없다. */
 /* 인물은 배경 일러스트가 맡는다. 이 칸에는 글자만, 오른쪽에 모아 올린다.
    왼쪽은 일러스트가 보이도록 비워 둔다. 이 묶음에는 면을 깔지 않는다. */
+/* 남는 자리를 받되, 자리가 모자라면 가장 먼저 줄어드는 칸이다.
+   여기가 버티면 아래 수치 패널이 화면 밖으로 밀려 스크롤이 생긴다. */
+/* 남는 자리를 받되, 자리가 모자라면 제 글자 높이까지 줄어든다. 바닥값을 따로 두지 않는다 —
+   여기가 버티면 아래 수치 패널이 밀려 스크롤이 생기고, 바닥값이 글자보다 작으면 이름이 잘린다. */
+/* 남는 자리를 받되, 자리가 모자라면 제 글자 높이까지만 줄어든다.
+   overflow 를 걸면 min-height 가 0 으로 풀려 이름이 잘린다 — 걸지 않는다. */
 .aud__hero {
-  flex: 1 1 auto; min-height: 150px; overflow: hidden;
-  display: flex; align-items: flex-end; justify-content: flex-end; padding: 2px 6px 24px;
+  flex: 1 1 auto;
+  display: flex; align-items: flex-end; justify-content: flex-end; padding: 2px 6px 10px;
 }
 .aud__id {
   justify-content: center; align-items: flex-end; text-align: right;
@@ -566,7 +581,7 @@
 }
 .aud__id .tags { justify-content: flex-end; }
 .aud__burden { justify-content: flex-end; }
-.aud__id { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.aud__id { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .aud__name {
   font-size: var(--fs-hero); font-weight: 900; letter-spacing: -0.01em; line-height: 1.1; margin: 0;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.75), 0 1px 2px rgba(0, 0, 0, 0.9);
@@ -574,15 +589,30 @@
 .aud__id .tags { gap: 5px; }
 /* 한마디. 정보 블럭과 섞이지 않게 작고 굵은 기울임으로 둔다. */
 .aud__quote {
-  margin: 4px 0 0; font-size: var(--fs-label); font-weight: 700; font-style: italic;
-  color: var(--c-text); line-height: 1.35;
+  margin: 2px 0 0; font-size: var(--fs-label); font-weight: 700; font-style: italic;
+  color: var(--c-text); line-height: 1.25;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+
+/* 사파리는 주소창이 떠 있는 동안 세로가 크게 줄어든다. 그때만 더 조여 스크롤을 막는다.
+   정보는 하나도 빼지 않는다 — 여백과 줄 간격만 좁힌다. */
+@media (max-height: 730px) {
+  .aud { gap: 4px; padding-bottom: 8px; }
+  .aud__scroll { gap: 4px; }
+  .aud__hero { padding-bottom: 6px; }
+  .aud__id { gap: 2px; }
+  .aud__id .tag { padding-top: 2px; padding-bottom: 2px; }
+  .aud__panel { padding: 9px 12px 10px; }
+  .aud__foot { margin-top: 5px; }
+  .aud__actions { margin-top: 8px; }
+  .fstats--compact { gap: 5px; margin-top: 7px; }
+  .roster__card .ph--thumb { aspect-ratio: 5 / 3; }
 }
 
 /* 하위 패널 2 — 왜 이 사람인가 + 수치 */
 /* 강점 · 수치 · 결정을 묶는 큰 투명 상자 */
 .aud__panel {
-  flex: 0 0 auto; padding: 13px 14px 15px; border-radius: 14px;
+  flex: 0 0 auto; padding: 11px 13px 12px; border-radius: 14px;
   background: rgba(10, 13, 20, 0.62);
   border: 1px solid rgba(240, 235, 224, 0.12);
   /* 일러스트가 은은하게 비치되 수치는 또렷하게. 흐림은 약하게만 건다. */
@@ -606,11 +636,11 @@
 }
 .badge--act:disabled { opacity: 0.4; }
 .badge--act:active:not(:disabled) { color: var(--c-text); border-color: var(--c-text-dim); }
-.aud__foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 9px; }
+.aud__foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 7px; }
 .aud__among, .badges__among { font-size: var(--fs-label); color: var(--c-text-faint); }
 
 /* 결정 — 주 버튼 하나 + 보조 둘 */
-.aud__actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.aud__actions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 /* 계약 협상이 이 화면의 유일한 강조다. 상세 보기는 조용한 면으로 한 단 내려둔다. */
 .aud__actions .btn--primary {
   background: linear-gradient(180deg, #ff7d9c 0%, var(--c-accent) 52%, #ef4767 100%);
