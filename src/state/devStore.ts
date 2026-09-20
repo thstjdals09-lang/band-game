@@ -87,10 +87,12 @@ export const useDevStore = create<DevStore>()(
        * v1 이전에는 testSprite가 assetKey/sourceSize/footAnchor까지 들고 있어서,
        * 브라우저에 남은 옛 키가 새 빌드의 월드를 깨뜨렸다 (인물이 안 보이거나 남의 얼굴로 보임).
        */
-      version: 1,
+      version: 2,
       migrate: (persisted, from) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
         if (from < 1) delete state.testSprite;
+        // v2: 기본 시야(키 5.8u / 줌 1.00)를 바꿨다. 예전에 조정해 둔 값은 버린다.
+        if (from < 2) { delete state.testSprite; delete state.playZoom; }
         return state;
       },
     },

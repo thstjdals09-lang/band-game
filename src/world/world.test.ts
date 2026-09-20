@@ -460,18 +460,19 @@ describe('test sprite placement', () => {
     });
   });
 
-  it('stands a character 3.6 elevation units tall by default', () => {
-    expect(DEFAULT_TEST_SPRITE.heightUnits).toBe(3.6);
-    expect(DEFAULT_TEST_SPRITE.heightUnits * proj.elevationHeight).toBeCloseTo(115.2);
+  it('stands a character 5.8 elevation units tall by default', () => {
+    expect(DEFAULT_TEST_SPRITE.heightUnits).toBe(5.8);
+    expect(DEFAULT_TEST_SPRITE.heightUnits * proj.elevationHeight).toBeCloseTo(185.6);
   });
 
   it('reads the pose height class from the end of the file name', () => {
     // 이름 끝이 등급이다. SIT 은 3.0u(95px), 그 밖은 서 있는 키 그대로.
     const sit = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C01_POSE_4_SIT');
-    expect(sit!.heightUnits).toBeCloseTo(3.0);
-    expect(sit!.heightUnits * proj.elevationHeight).toBeCloseTo(96);
+    expect(sit!.heightUnits).toBeCloseTo(5.8 * (3.0 / 3.6));
     const full = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C01_POSE_4_FULL');
-    expect(full!.heightUnits).toBeCloseTo(3.6);
+    expect(full!.heightUnits).toBeCloseTo(5.8);
+    const lay = spriteFor(DEFAULT_TEST_SPRITE, 'CHARACTER_C02_POSE_4_LAY');
+    expect(lay!.heightUnits).toBeCloseTo(5.8 * 0.52);
   });
 
   it('attaches the sprite to the character node without moving its spawn tile', () => {

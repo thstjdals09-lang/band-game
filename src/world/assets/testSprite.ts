@@ -19,7 +19,7 @@ import { spriteMetricsFor } from './spriteMetrics';
  */
 export const POSE_HEIGHT_CLASS: Record<string, number> = {
   FULL: 1,
-  // 기본 3.6u일 때 3.0u(≈95px). 비율로 둬서 랩에서 키를 바꾸면 같이 따라간다.
+  // 서 있는 키의 0.83. 비율로 둬서 랩에서 키를 바꾸면 같이 따라간다.
   SIT: 3.0 / 3.6,
   // 누운 자세. 들어온 그림들이 서 있는 자세의 0.52 높이로 그려져 있어 그 값을 따른다 (≈1.9u / 60px).
   LAY: 0.52,
@@ -48,13 +48,13 @@ export interface TestSpriteParams {
 
 export const DEFAULT_TEST_SPRITE: TestSpriteParams = {
   enabled: true,
-  // 3.6u × 32 = 115.2 render px. 타일 폭 128 위에 인물이 서 있는 크기.
-  heightUnits: 3.6,
+  // 5.8u × 32 = 185.6 render px. 타일 폭 128 위에 인물이 서 있는 크기.
+  heightUnits: 5.8,
   footNudge: { x: 0, y: 0 },
 };
 
 export const TEST_SPRITE_LIMITS = {
-  heightUnits: { min: 0.8, max: 6, step: 0.1 },
+  heightUnits: { min: 0.8, max: 8, step: 0.1 },
   footNudge: { step: 2 },
 } as const;
 
