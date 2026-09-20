@@ -17,6 +17,7 @@ import { OBJECT_DEFINITIONS, depthAnchorFor, interactionTileFor } from './object
 import { occupancyPlacements, resolveCharacterPlacements, resolveObjectInstances } from './objects/instances';
 import { buildWorldScene, cameraBoundsOf, focusPointOf } from './renderer/buildScene';
 import { DEFAULT_TEST_SPRITE, spriteFor } from './assets/testSprite';
+import { CHARACTER_SPRITES } from './assets/characterSprites';
 import { createNewGame } from '@/state/save/newGame';
 import type { SaveData } from '@/state/save/schema';
 
@@ -411,8 +412,13 @@ describe('play camera and drag panning', () => {
 describe('test sprite placement', () => {
   it('binds the stand-in only to its own character by default', () => {
     expect(spriteFor(DEFAULT_TEST_SPRITE, 'C01')).toBeDefined();
-    expect(spriteFor(DEFAULT_TEST_SPRITE, 'C04')).toBeUndefined();
-    expect(spriteFor({ ...DEFAULT_TEST_SPRITE, applyToAllCharacters: true }, 'C04')).toBeDefined();
+    // 인물마다 자기 이미지를 쓴다. 다른 인물의 이미지를 빌려 오지 않는다.
+    const c04 = spriteFor(DEFAULT_TEST_SPRITE, 'C04', 'CHARACTER_C04_FULL');
+    expect(c04?.assetKey).toBe('CHARACTER_C04_FULL');
+    expect(c04?.sourceSize).toEqual(CHARACTER_SPRITES.C04.sourceSize);
+    expect(c04?.footAnchor).toEqual(CHARACTER_SPRITES.C04.footAnchor);
+    // 아직 자기 이미지가 없는 인물은 스프라이트를 받지 않는다.
+    expect(spriteFor(DEFAULT_TEST_SPRITE, 'C03', 'CHARACTER_C03_FULL')).toBeUndefined();
     expect(spriteFor({ ...DEFAULT_TEST_SPRITE, enabled: false }, 'C01')).toBeUndefined();
   });
 

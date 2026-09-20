@@ -215,9 +215,6 @@ export function WorldLabScreen() {
           </div>
 
           <div className="row mt12">
-            <Btn size="sm" variant={sprite.applyToAllCharacters ? 'primary' : 'secondary'} onClick={() => setSprite({ applyToAllCharacters: !sprite.applyToAllCharacters })}>
-              모든 캐릭터에 적용
-            </Btn>
             <Btn size="sm" variant="ghost" onClick={resetSprite}>RESET</Btn>
           </div>
           <div className="rowcard__meta mt12">값은 개발용이며 최종 규격이 아니다. DEPTH ANCHOR 오버레이를 켜면 발 기준점이 타일 중심에 닿는지 확인할 수 있다.</div>

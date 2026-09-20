@@ -119,7 +119,7 @@ export function buildWorldScene(input: BuildSceneInput): WorldScene {
       state: c.pose,
       hitTiles: [c.pos],
       characterId: c.characterId,
-      sprite: input.testSprite ? spriteFor(input.testSprite, c.characterId) : undefined,
+      sprite: input.testSprite ? spriteFor(input.testSprite, c.characterId, c.assetKey) : undefined,
       target: c.characterId ? `/?member=${c.characterId}` : '/band',
     });
   });
